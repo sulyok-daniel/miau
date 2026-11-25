@@ -7,26 +7,41 @@
   img{position:fixed;inset:0;width:100%;height:100%;object-fit:contain}
   p{position:fixed;left:0;right:0;bottom:5vh;margin:0 1em;text-align:center;text-shadow:0 0 .3em #000,0 0 .1em #000}
 </style>
-<img alt="Katze">
+<img alt="Cat">
 <p></p>
 <script>
-const sprueche = [
-  "Ich hab vergessen, meinen Bildschirm zu sperren. Jetzt gehört er der Katze.",
-  "Mein Passwort ist „miau123“. War's schon immer.",
-  "Ich bringe morgen Kuchen für alle mit. 🎂",
-  "Ich bin eigentlich nur drei Katzen in einem Trenchcoat.",
-  "Win + L ist mir zu kompliziert.",
-  "Heute schon den Monitor gestreichelt?",
-  "Ich habe beschlossen, ab jetzt nur noch in Comic Sans zu schreiben.",
-  "Diese Katze hat gerade alle meine Tickets auf „Done“ gesetzt.",
-  "Ich lese meine Mails nur noch laut vor.",
-  "Bin kurz weg. Die Katze übernimmt das Daily.",
-];
-const img = document.querySelector("img"), p = document.querySelector("p");
-function neu() {
+// Ready-made sayings: text files next to this page, one saying per line
+const FILES = ["sayings.txt"];
+
+// Generated sayings: when + what + ending (extend any list as you like)
+const when = ["Ab heute", "Ab morgen", "Jeden Freitag", "Ab sofort", "Nach der Mittagspause",
+  "Bis Weihnachten", "In jedem Meeting", "Zu meinem Geburtstag", "Jeden Montag", "Ab nächster Woche",
+  "Bis zur Rente", "Bei jedem Videocall", "Vor jedem Kaffee", "Ab dem nächsten Sprint"];
+const what = ["bringe ich Kuchen für alle mit", "spreche ich nur noch in Reimen", "miaue ich bei jeder Frage",
+  "trage ich ein Katzenkostüm", "schreibe ich nur noch in Comic Sans", "singe ich das Daily",
+  "lasse ich die Katze meine Tickets schätzen", "lese ich meine Mails laut vor",
+  "gebe ich allen eine Runde aus", "sperre ich endlich meinen Bildschirm",
+  "duze ich den Drucker", "beantworte ich Mails nur noch mit Katzen-GIFs",
+  "sitze ich im Karton statt am Schreibtisch", "schnurre ich, wenn mich jemand lobt",
+  "nenne ich alle Bugs „Features“", "stelle ich mich als „Herr Miau“ vor",
+  "schmeiße ich Kaffeetassen vom Tisch", "mache ich jeden Nachmittag ein Nickerchen auf der Tastatur"];
+const ending = [".", "!", ", versprochen.", " – die Katze ist mein Zeuge.",
+  ". Bitte erinnert mich daran!", " 😺", ". Ehrenwort.", ". Ist schon im Kalender.", "… miau."];
+
+const pick = list => list[Math.floor(Math.random() * list.length)];
+const img = document.querySelector("img"), text = document.querySelector("p");
+let readyMade = [];
+
+function next() {
   img.src = "https://cataas.com/cat?" + Date.now();
-  p.textContent = sprueche[Math.floor(Math.random() * sprueche.length)];
+  text.textContent = readyMade.length && Math.random() < 0.5
+    ? pick(readyMade)
+    : `${pick(when)} ${pick(what)}${pick(ending)}`;
 }
-document.onclick = () => { document.documentElement.requestFullscreen?.().catch(() => {}); neu(); };
-neu();
+
+Promise.all(FILES.map(file => fetch(file).then(res => res.ok ? res.text() : "").catch(() => "")))
+  .then(contents => readyMade = contents.join("\n").split("\n").map(line => line.trim()).filter(Boolean));
+
+document.onclick = () => { document.documentElement.requestFullscreen?.().catch(() => {}); next(); };
+next();
 </script>

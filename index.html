@@ -1,14 +1,25 @@
 <!doctype html>
+<html lang="de">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lock your screen 🐈</title>
 <style>
   html,body{margin:0;height:100%;background:#000;color:#fff;font:bold clamp(1.5rem,5vw,4rem)/1.2 system-ui,sans-serif;cursor:pointer}
-  img{position:fixed;inset:0;width:100%;height:100%;object-fit:contain}
+  img,pre{position:fixed;inset:0;width:100%;height:100%;object-fit:contain;margin:0}
+  pre{display:grid;place-items:center;font:clamp(.7rem,4vmin,2.5rem)/1.1 monospace}
   p{position:fixed;left:0;right:0;bottom:5vh;margin:0 1em;text-align:center;text-shadow:0 0 .3em #000,0 0 .1em #000}
+  button{position:fixed;top:1rem;right:1rem;font:1rem monospace;padding:.5em .8em;background:#000;color:#fff;border:2px solid #fff;cursor:pointer}
+  button:focus-visible{outline:3px solid #ff0;outline-offset:3px}
+  .ascii{display:flex;flex-direction:column;justify-content:safe center;align-items:center;gap:1em;padding:4rem 1rem 1rem;box-sizing:border-box}
+  .ascii pre,.ascii p{position:static;width:auto;height:auto}
+  .ascii p{font:bold clamp(1rem,5vmin,3.5rem)/1.2 monospace}
+  .ascii img,body:not(.ascii) pre{display:none}
 </style>
-<img alt="Cat">
-<p></p>
+<body>
+<img alt="Zufälliges Katzenfoto">
+<pre role="img" aria-label="Katze aus Textzeichen"></pre>
+<p aria-live="polite"></p>
+<button type="button" aria-pressed="false">ASCII-Modus</button>
 <script>
 // Ready-made sayings: text files next to this page, one saying per line
 const FILES = ["sayings.txt"];
@@ -28,20 +39,72 @@ const what = ["bringe ich Kuchen für alle mit", "spreche ich nur noch in Reimen
 const ending = [".", "!", ", versprochen.", " – die Katze ist mein Zeuge.",
   ". Bitte erinnert mich daran!", " 😺", ". Ehrenwort.", ". Ist schon im Kalender.", "… miau."];
 
+// ASCII cats for the image-free mode
+const asciiCats = [
+` /\\_/\\
+( o.o )
+ > ^ <`,
+` /\\_/\\
+( -.- ) zzZ
+ (> <)`,
+`  /\\_/\\   (
+ ( ^.^ ) _)
+   \\"/  (
+ ( | | )
+(__d b__)`,
+`  |\\---/|
+  | o_o |
+   \\_^_/`,
+` /\\_/\\
+( =^.^= )
+ (")_(")`,
+`   /\\_/\\
+  ( o.o )
+   )   (
+  (     )
+ ( (   ) )
+(__(___)__)`,
+];
+
+// Replace non-ASCII characters so the saying is plain ASCII text
+const toAscii = s => s
+  .replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue")
+  .replace(/Ä/g, "Ae").replace(/Ö/g, "Oe").replace(/Ü/g, "Ue").replace(/ß/g, "ss")
+  .replace(/[„“”]/g, '"').replace(/[‚‘’]/g, "'").replace(/[–—]/g, "-").replace(/…/g, "...").replace(/😺/g, "=^.^=")
+  .replace(/[^\x00-\x7F]/g, "").trim();
+
 const pick = list => list[Math.floor(Math.random() * list.length)];
-const img = document.querySelector("img"), text = document.querySelector("p");
+const img = document.querySelector("img"), art = document.querySelector("pre"),
+  text = document.querySelector("p"), toggle = document.querySelector("button");
 let readyMade = [];
 
+const isAscii = () => location.hash === "#ascii";
+
 function next() {
-  img.src = "https://cataas.com/cat?" + Date.now();
-  text.textContent = readyMade.length && Math.random() < 0.5
+  const saying = readyMade.length && Math.random() < 0.5
     ? pick(readyMade)
     : `${pick(when)} ${pick(what)}${pick(ending)}`;
+  if (isAscii()) {
+    art.textContent = pick(asciiCats);
+    text.textContent = toAscii(saying);
+  } else {
+    img.src = "https://cataas.com/cat?" + Date.now();
+    text.textContent = saying;
+  }
+}
+
+function applyMode() {
+  document.body.classList.toggle("ascii", isAscii());
+  toggle.setAttribute("aria-pressed", isAscii());
+  next();
 }
 
 Promise.all(FILES.map(file => fetch(file).then(res => res.ok ? res.text() : "").catch(() => "")))
   .then(contents => readyMade = contents.join("\n").split("\n").map(line => line.trim()).filter(Boolean));
 
+toggle.onclick = e => { e.stopPropagation(); location.hash = isAscii() ? "" : "ascii"; };
+window.onhashchange = applyMode;
 document.onclick = () => { document.documentElement.requestFullscreen?.().catch(() => {}); next(); };
-next();
+document.onkeydown = e => { if ((e.key === " " || e.key === "Enter") && e.target !== toggle) { e.preventDefault(); next(); } };
+applyMode();
 </script>

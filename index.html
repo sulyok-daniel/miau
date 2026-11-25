@@ -8,8 +8,10 @@
   img,pre{position:fixed;inset:0;width:100%;height:100%;object-fit:contain;margin:0}
   pre{display:grid;place-items:center;font:clamp(.7rem,4vmin,2.5rem)/1.1 monospace}
   p{position:fixed;left:0;right:0;bottom:5vh;margin:0 1em;text-align:center;text-shadow:0 0 .3em #000,0 0 .1em #000}
-  button{position:fixed;top:1rem;right:1rem;font:1rem monospace;padding:.5em .8em;background:#000;color:#fff;border:2px solid #fff;cursor:pointer}
-  button:focus-visible{outline:3px solid #ff0;outline-offset:3px}
+  nav{position:fixed;top:.5rem;right:.5rem;display:flex;gap:.25rem}
+  button{font:.8rem system-ui,sans-serif;padding:.3em .6em;background:none;color:#fff;border:0;opacity:.4;cursor:pointer;text-shadow:0 0 .3em #000}
+  button:hover,button:focus-visible{opacity:1;text-decoration:underline}
+  button:focus-visible{outline:2px solid #ff0;outline-offset:2px}
   .ascii{display:flex;flex-direction:column;justify-content:safe center;align-items:center;gap:1em;padding:4rem 1rem 1rem;box-sizing:border-box}
   .ascii pre,.ascii p{position:static;width:auto;height:auto}
   .ascii p{font:bold clamp(1rem,5vmin,3.5rem)/1.2 monospace}
@@ -19,7 +21,10 @@
 <img alt="Zufälliges Katzenfoto">
 <pre role="img" aria-label="Katze aus Textzeichen"></pre>
 <p aria-live="polite"></p>
-<button type="button" aria-pressed="false">ASCII-Modus</button>
+<nav>
+  <button type="button" id="mode"></button>
+  <button type="button" id="fullscreen" hidden>Vollbild</button>
+</nav>
 <script>
 // Ready-made sayings: text files next to this page, one saying per line
 const FILES = ["sayings.txt"];
@@ -75,7 +80,8 @@ const toAscii = s => s
 
 const pick = list => list[Math.floor(Math.random() * list.length)];
 const img = document.querySelector("img"), art = document.querySelector("pre"),
-  text = document.querySelector("p"), toggle = document.querySelector("button");
+  text = document.querySelector("p"), modeButton = document.querySelector("#mode"),
+  fullscreenButton = document.querySelector("#fullscreen");
 let readyMade = [];
 
 const isAscii = () => location.hash === "#ascii";
@@ -95,16 +101,29 @@ function next() {
 
 function applyMode() {
   document.body.classList.toggle("ascii", isAscii());
-  toggle.setAttribute("aria-pressed", isAscii());
+  modeButton.textContent = isAscii() ? "Mit Bildern" : "Ohne Bilder";
   next();
 }
 
 Promise.all(FILES.map(file => fetch(file).then(res => res.ok ? res.text() : "").catch(() => "")))
   .then(contents => readyMade = contents.join("\n").split("\n").map(line => line.trim()).filter(Boolean));
 
-toggle.onclick = e => { e.stopPropagation(); location.hash = isAscii() ? "" : "ascii"; };
+modeButton.onclick = e => { e.stopPropagation(); location.hash = isAscii() ? "" : "ascii"; };
 window.onhashchange = applyMode;
-document.onclick = () => { document.documentElement.requestFullscreen?.().catch(() => {}); next(); };
-document.onkeydown = e => { if ((e.key === " " || e.key === "Enter") && e.target !== toggle) { e.preventDefault(); next(); } };
+
+// Fullscreen button, shown only where the browser supports it
+fullscreenButton.hidden = !document.fullscreenEnabled;
+fullscreenButton.onclick = e => {
+  e.stopPropagation();
+  document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {});
+};
+document.onfullscreenchange = () =>
+  fullscreenButton.textContent = document.fullscreenElement ? "Vollbild beenden" : "Vollbild";
+
+// Click anywhere, Space or Enter: next cat and saying
+document.onclick = next;
+document.onkeydown = e => {
+  if ((e.key === " " || e.key === "Enter") && e.target.tagName !== "BUTTON") { e.preventDefault(); next(); }
+};
 applyMode();
 </script>

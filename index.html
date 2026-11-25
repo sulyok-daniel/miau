@@ -13,10 +13,15 @@
   p,#timer{text-shadow:0 0 .3em #000,0 0 .1em #000}
   p{position:fixed;left:0;right:0;bottom:5vh;margin:0 1em;text-align:center}
   #timer{position:fixed;top:.5rem;left:.75rem;max-width:calc(100% - 14rem);font-size:clamp(.9rem,2.5vw,1.6rem);font-variant-numeric:tabular-nums}
-  nav{position:fixed;top:.5rem;right:.5rem;display:flex;gap:.25rem}
-  button{font:1rem var(--mono);padding:.3em .6em;background:none;color:#fff;border:0;opacity:.4;cursor:pointer;text-shadow:0 0 .3em #000}
-  button:hover,button:focus-visible{opacity:1;text-decoration:underline}
-  button:focus-visible{outline:2px solid #ff0;outline-offset:2px}
+  #config{position:fixed;top:.5rem;right:.5rem;font:1rem var(--mono);text-align:right;cursor:auto}
+  summary{display:inline-block;list-style:none;padding:.3em .6em;opacity:.4;cursor:pointer;text-shadow:0 0 .3em #000}
+  summary::-webkit-details-marker{display:none}
+  #config[open] summary,summary:hover,summary:focus-visible{opacity:1}
+  #config div{display:flex;flex-direction:column;align-items:flex-start;gap:.7em;margin-top:.3em;padding:.8em 1em;background:#000d;border:1px solid #fff6;text-align:left}
+  button,input{font:inherit;color:#fff;background:none;cursor:pointer}
+  button{border:0;padding:0;text-decoration:underline}
+  input[type=number]{width:5ch;border:1px solid #fff8;padding:0 .2em;cursor:text}
+  :focus-visible{outline:2px solid #ff0;outline-offset:2px}
   .ascii{display:flex;flex-direction:column;justify-content:safe center;align-items:center;gap:1em;padding:5rem 1rem 1rem;box-sizing:border-box}
   .ascii pre,.ascii p{position:static;width:auto;height:auto}
   .ascii p{font-size:clamp(1rem,5vmin,3rem)}
@@ -27,10 +32,15 @@
 <pre role="img"></pre>
 <p aria-live="polite"></p>
 <div id="timer">Bildschirm entsperrt seit 00:00:00</div>
-<nav>
-  <button type="button" id="mode"></button>
-  <button type="button" id="fullscreen" hidden>Vollbild</button>
-</nav>
+<details id="config" open>
+  <summary>[config]</summary>
+  <div>
+    <button type="button" id="mode"></button>
+    <button type="button" id="fullscreen" hidden>Vollbild</button>
+    <label><input type="checkbox" id="autoreload"> Auto-Reload</label>
+    <label>alle <input type="number" id="seconds" value="30" min="1" step="1"> Sekunden</label>
+  </div>
+</details>
 <script>
 // Ready-made sayings: text files next to this page, one saying per line
 const FILES = ["sayings.txt"];
@@ -159,8 +169,10 @@ const toAscii = s => s
 const pick = list => list[Math.floor(Math.random() * list.length)];
 const img = document.querySelector("img"), art = document.querySelector("pre"),
   text = document.querySelector("p"), timer = document.querySelector("#timer"),
-  modeButton = document.querySelector("#mode"), fullscreenButton = document.querySelector("#fullscreen");
-let readyMade = [];
+  config = document.querySelector("#config"), modeButton = document.querySelector("#mode"),
+  fullscreenButton = document.querySelector("#fullscreen"),
+  autoReload = document.querySelector("#autoreload"), seconds = document.querySelector("#seconds");
+let readyMade = [], reloadTimeout;
 
 const isAscii = () => location.hash === "#ascii";
 
@@ -178,7 +190,15 @@ function next() {
     img.src = "https://cataas.com/cat?" + Date.now();
     text.textContent = saying;
   }
+  scheduleReload();
 }
+
+// Auto-reload: new cat and saying after the configured seconds (the timer keeps running)
+function scheduleReload() {
+  clearTimeout(reloadTimeout);
+  if (autoReload.checked) reloadTimeout = setTimeout(next, Math.max(1, Number(seconds.value) || 30) * 1000);
+}
+autoReload.onchange = seconds.onchange = scheduleReload;
 
 function applyMode() {
   document.body.classList.toggle("ascii", isAscii());
@@ -197,22 +217,22 @@ setInterval(() => {
   timer.textContent = `Bildschirm entsperrt seit ${pad(Math.floor(s / 3600))}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
 }, 250);
 
-modeButton.onclick = e => { e.stopPropagation(); location.hash = isAscii() ? "" : "ascii"; };
+modeButton.onclick = () => { location.hash = isAscii() ? "" : "ascii"; };
 window.onhashchange = applyMode;
 
 // Fullscreen button, shown only where the browser supports it
 fullscreenButton.hidden = !document.fullscreenEnabled;
-fullscreenButton.onclick = e => {
-  e.stopPropagation();
+fullscreenButton.onclick = () => {
   document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {});
 };
 document.onfullscreenchange = () =>
   fullscreenButton.textContent = document.fullscreenElement ? "Vollbild beenden" : "Vollbild";
 
-// Click anywhere, Space or Enter: next cat and saying
+// Click anywhere, Space or Enter: next cat and saying (but not inside the config box)
+config.onclick = e => e.stopPropagation();
 document.onclick = next;
 document.onkeydown = e => {
-  if ((e.key === " " || e.key === "Enter") && e.target.tagName !== "BUTTON") { e.preventDefault(); next(); }
+  if ((e.key === " " || e.key === "Enter") && !config.contains(e.target)) { e.preventDefault(); next(); }
 };
 applyMode();
 </script>

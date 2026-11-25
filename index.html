@@ -4,23 +4,29 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Lock your screen 🐈</title>
 <style>
-  html,body{margin:0;height:100%;background:#000;color:#fff;font:bold clamp(1.5rem,5vw,4rem)/1.2 system-ui,sans-serif;cursor:pointer}
+  /* Nerdy monospace stack, no web font needed: Cascadia ships with Windows 11 and Terminal */
+  :root{--mono:"Cascadia Code","JetBrains Mono","Fira Code","SF Mono",ui-monospace,Menlo,Consolas,monospace}
+  html,body{margin:0;height:100%;background:#000}
+  body{color:#fff;font:bold clamp(1.2rem,4vw,3rem)/1.25 var(--mono);cursor:pointer}
   img,pre{position:fixed;inset:0;width:100%;height:100%;object-fit:contain;margin:0}
-  pre{display:grid;place-items:center;font:clamp(.7rem,4vmin,2.5rem)/1.1 monospace}
-  p{position:fixed;left:0;right:0;bottom:5vh;margin:0 1em;text-align:center;text-shadow:0 0 .3em #000,0 0 .1em #000}
+  pre{display:grid;place-items:center;font:clamp(.7rem,4vmin,2.5rem)/1.1 var(--mono)}
+  p,#timer{text-shadow:0 0 .3em #000,0 0 .1em #000}
+  p{position:fixed;left:0;right:0;bottom:5vh;margin:0 1em;text-align:center}
+  #timer{position:fixed;top:.5rem;left:.75rem;max-width:calc(100% - 14rem);font-size:clamp(.9rem,2.5vw,1.6rem);font-variant-numeric:tabular-nums}
   nav{position:fixed;top:.5rem;right:.5rem;display:flex;gap:.25rem}
-  button{font:.8rem system-ui,sans-serif;padding:.3em .6em;background:none;color:#fff;border:0;opacity:.4;cursor:pointer;text-shadow:0 0 .3em #000}
+  button{font:1rem var(--mono);padding:.3em .6em;background:none;color:#fff;border:0;opacity:.4;cursor:pointer;text-shadow:0 0 .3em #000}
   button:hover,button:focus-visible{opacity:1;text-decoration:underline}
   button:focus-visible{outline:2px solid #ff0;outline-offset:2px}
-  .ascii{display:flex;flex-direction:column;justify-content:safe center;align-items:center;gap:1em;padding:4rem 1rem 1rem;box-sizing:border-box}
+  .ascii{display:flex;flex-direction:column;justify-content:safe center;align-items:center;gap:1em;padding:5rem 1rem 1rem;box-sizing:border-box}
   .ascii pre,.ascii p{position:static;width:auto;height:auto}
-  .ascii p{font:bold clamp(1rem,5vmin,3.5rem)/1.2 monospace}
+  .ascii p{font-size:clamp(1rem,5vmin,3rem)}
   .ascii img,body:not(.ascii) pre{display:none}
 </style>
 <body>
 <img alt="Zufälliges Katzenfoto">
-<pre role="img" aria-label="Katze aus Textzeichen"></pre>
+<pre role="img"></pre>
 <p aria-live="polite"></p>
+<div id="timer">Bildschirm entsperrt seit 00:00:00</div>
 <nav>
   <button type="button" id="mode"></button>
   <button type="button" id="fullscreen" hidden>Vollbild</button>
@@ -44,32 +50,104 @@ const what = ["bringe ich Kuchen für alle mit", "spreche ich nur noch in Reimen
 const ending = [".", "!", ", versprochen.", " – die Katze ist mein Zeuge.",
   ". Bitte erinnert mich daran!", " 😺", ". Ehrenwort.", ". Ist schon im Kalender.", "… miau."];
 
-// ASCII cats for the image-free mode
-const asciiCats = [
-` /\\_/\\
+// ASCII cats for the image-free mode; 1 to 3 of them are shown side by side
+const asciiCats = [String.raw`
+ /\_/\
 ( o.o )
- > ^ <`,
-` /\\_/\\
+ > ^ <
+`, String.raw`
+ /\_/\
 ( -.- ) zzZ
- (> <)`,
-`  /\\_/\\   (
+ (> <)
+`, String.raw`
+  /\_/\   (
  ( ^.^ ) _)
-   \\"/  (
+   \"/  (
  ( | | )
-(__d b__)`,
-`  |\\---/|
-  | o_o |
-   \\_^_/`,
-` /\\_/\\
+(__d b__)
+`, String.raw`
+ |\---/|
+ | o_o |
+  \_^_/
+`, String.raw`
+ /\_/\
 ( =^.^= )
- (")_(")`,
-`   /\\_/\\
+ (")_(")
+`, String.raw`
+   /\_/\
   ( o.o )
    )   (
   (     )
  ( (   ) )
-(__(___)__)`,
-];
+(__(___)__)
+`, String.raw`
+  /\_/\
+ ( o o )
+ /  V  \
+/(  _  )\
+  ^^ ^^
+`, String.raw`
+ /\_/\
+( O.O )
+ > - <
+`, String.raw`
+ /\_/\
+( >.< )
+ /   \
+`, String.raw`
+  /\_/\
+(=[o-o]=)
+  > ^ <
+`, String.raw`
+  /\___/\
+ ( o   o )
+ (  =^=  )
+ (________)
+`, String.raw`
+  /\_/\
+ ( o.o )
++-------+
+|  BOX  |
++-------+
+`, String.raw`
+ /\_/\
+( ^_^ ) <3
+ /   \
+`, String.raw`
+ /\_/\
+( ^.- )
+ (")(")
+`, String.raw`
+  /\_/\
+ ( -.- )
+ ( u u )~
+   zzZ
+`, String.raw`
+ /\_/\
+( o.o )
+ > P <
+`, String.raw`
+  /\_/\
+\( ^o^ )/
+  |   |
+  ^^ ^^
+`, String.raw`
+ /\_/\  .-------.
+( o.o ) < Miau! |
+ > ^ <  '-------'
+`, String.raw`
+=^.^=
+`].map(cat => cat.split("\n").slice(1, -1));
+
+// Put cats next to each other, bottom-aligned, as one block of text
+const sideBySide = cats => {
+  const height = Math.max(...cats.map(cat => cat.length));
+  const blocks = cats.map(cat => {
+    const width = Math.max(...cat.map(line => line.length));
+    return [...Array(height - cat.length).fill(""), ...cat].map(line => line.padEnd(width));
+  });
+  return Array.from({ length: height }, (_, i) => blocks.map(block => block[i]).join("   ").trimEnd()).join("\n");
+};
 
 // Replace non-ASCII characters so the saying is plain ASCII text
 const toAscii = s => s
@@ -80,8 +158,8 @@ const toAscii = s => s
 
 const pick = list => list[Math.floor(Math.random() * list.length)];
 const img = document.querySelector("img"), art = document.querySelector("pre"),
-  text = document.querySelector("p"), modeButton = document.querySelector("#mode"),
-  fullscreenButton = document.querySelector("#fullscreen");
+  text = document.querySelector("p"), timer = document.querySelector("#timer"),
+  modeButton = document.querySelector("#mode"), fullscreenButton = document.querySelector("#fullscreen");
 let readyMade = [];
 
 const isAscii = () => location.hash === "#ascii";
@@ -91,7 +169,10 @@ function next() {
     ? pick(readyMade)
     : `${pick(when)} ${pick(what)}${pick(ending)}`;
   if (isAscii()) {
-    art.textContent = pick(asciiCats);
+    const pool = [...asciiCats], count = pick([1, 2, 2, 3]);
+    const cats = Array.from({ length: count }, () => pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    art.textContent = sideBySide(cats);
+    art.setAttribute("aria-label", count === 1 ? "Katze aus Textzeichen" : `${count} Katzen aus Textzeichen`);
     text.textContent = toAscii(saying);
   } else {
     img.src = "https://cataas.com/cat?" + Date.now();
@@ -107,6 +188,14 @@ function applyMode() {
 
 Promise.all(FILES.map(file => fetch(file).then(res => res.ok ? res.text() : "").catch(() => "")))
   .then(contents => readyMade = contents.join("\n").split("\n").map(line => line.trim()).filter(Boolean));
+
+// Timer: time since the page was opened, computed from a start timestamp
+const start = Date.now();
+const pad = n => String(n).padStart(2, "0");
+setInterval(() => {
+  const s = Math.floor((Date.now() - start) / 1000);
+  timer.textContent = `Bildschirm entsperrt seit ${pad(Math.floor(s / 3600))}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
+}, 250);
 
 modeButton.onclick = e => { e.stopPropagation(); location.hash = isAscii() ? "" : "ascii"; };
 window.onhashchange = applyMode;

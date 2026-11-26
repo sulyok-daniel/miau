@@ -36,7 +36,7 @@ const pick = list => list[Math.floor(Math.random() * list.length)];
 // Slightly irregular edges for the paper: a clip-path polygon whose corners and edge points are
 // nudged inwards by up to `maxX` / `maxY` percent of the element's width / height
 const roughPolygon = (maxX, maxY, steps) => {
-    const along = n => Array.from({ length: n + 1 }, (_, i) => (i * 100) / n);
+    const along = n => Array.from({length: n + 1}, (_, i) => (i * 100) / n);
     const points = [
         ...along(steps).map(x => [x, randomBetween(0, maxY)]),                       // top, left to right
         ...along(3).slice(1, -1).map(y => [100 - randomBetween(0, maxX), y]),        // right
@@ -49,7 +49,7 @@ const roughPolygon = (maxX, maxY, steps) => {
 // Pick up to `count` different entries from a list
 const pickDistinct = (list, count) => {
     const pool = [...list];
-    return Array.from({ length: Math.min(count, pool.length) },
+    return Array.from({length: Math.min(count, pool.length)},
         () => pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
 };
 
@@ -73,7 +73,7 @@ const sideBySide = cats => {
         const padding = Array(height - cat.length).fill("");
         return [...padding, ...cat].map(line => line.padEnd(width));
     });
-    const rows = Array.from({ length: height }, (_, row) => columns.map(column => column[row]).join("   ").trimEnd());
+    const rows = Array.from({length: height}, (_, row) => columns.map(column => column[row]).join("   ").trimEnd());
     return rows.join("\n");
 };
 
@@ -95,13 +95,13 @@ const openConfigButton = $("#open-config");
 const openHistoryButton = $("#open-history");
 const modeButton = $("#mode");
 const effectsToggle = $("#effects");
+const glow = $(".glow");
 const fullscreenButton = $("#fullscreen");
 const historyList = $("#history ol");
 const darkMode = $("#dark");
 const inverted = $("#inverted");
 const autoReload = $("#autoreload");
 const seconds = $("#seconds");
-const menuFont = $("#menu-font");
 const resetSettingsButton = $("#reset-settings");
 const resetHighscoreButton = $("#reset-highscore");
 const resetHistoryButton = $("#reset-history");
@@ -131,7 +131,7 @@ const isAscii = () => location.hash === "#ascii";
 // ---------------------------------------------------------------------------
 
 function generatedSaying() {
-    const { when, what, ending } = phrases;
+    const {when, what, ending} = phrases;
     if (!when?.length || !what?.length || !ending?.length) return "";
     const end = pick(ending);
     const separator = /^[.,!?…]/.test(end) ? "" : " ";
@@ -162,6 +162,8 @@ function setSaying(text) {
     const words = text.split(/\s+/).filter(Boolean).map(word => {
         const el = document.createElement("span");
         el.append(...wordNodes(word));
+        // highlighted words get their own strip later; reserve about the room that costs (padding and gaps)
+        if (el.querySelector("mark")) el.style.marginInline = ".1em";
         return el;
     });
     saying.replaceChildren(...words.flatMap(word => [word, " "]));
@@ -176,13 +178,37 @@ function setSaying(text) {
         wordsPerLine.at(-1).push(word);
     }
 
+    words.forEach(word => word.style.marginInline = "");
+
     saying.replaceChildren(...wordsPerLine.map(lineWords => {
-        // outer span: tilt, indent and shadow; inner span: the paper itself with its rough edge
-        // (the shadow must sit on the outer span, or the clip-path would cut it off)
-        const paper = document.createElement("span");
-        paper.className = "paper";
-        paper.style.setProperty("--clip", roughPolygon(.3, 3, 8));
-        paper.append(...lineWords.flatMap((word, i) => (i ? [" ", word] : [word])));
+        // outer span: tilt, indent and shadow; inner spans: the papers themselves, each with its own rough edge
+        // (the shadow must sit on the outer span, or the clip-path would cut it off).
+        // Highlighted words are cut out of the strip: they sit on their own paper in the accent color.
+        const papers = [];
+        for (const word of lineWords) {
+            const accent = !!word.querySelector("mark");
+            if (papers.at(-1)?.accent !== accent) {
+                const paper = document.createElement("span");
+                paper.className = accent ? "paper accent" : "paper";
+                paper.style.setProperty("--clip", roughPolygon(.3, 3, 8));
+                let el = paper;
+                if (accent) {
+                    // the accent paper gets a wrapper for tilt and its own shadow (the clip-path would cut it off)
+                    el = document.createElement("span");
+                    el.className = "chip";
+                    el.style.setProperty("--tilt", `${randomSigned(1.2, 2.6)}deg`);
+                    el.style.setProperty("--lift", `${randomSigned(.03, .1)}em`);
+                    // its own wobble, independent of the strip's
+                    el.style.setProperty("--chip-wobble", `${randomSigned(.6, 1.2)}deg`);
+                    el.style.setProperty("--chip-time", `${randomBetween(4, 7)}s`);
+                    el.style.setProperty("--chip-delay", `-${randomBetween(0, 7)}s`);
+                    el.append(paper);
+                }
+                papers.push({ el, paper, accent, words: [] });
+            }
+            papers.at(-1).words.push(word);
+        }
+        for (const { paper, words } of papers) paper.append(...words.flatMap((word, i) => (i ? [" ", word] : [word])));
 
         const strip = document.createElement("span");
         strip.className = "line";
@@ -192,7 +218,7 @@ function setSaying(text) {
         strip.style.setProperty("--wobble", `${randomSigned(.3, .5)}deg`);
         strip.style.setProperty("--wobble-time", `${randomBetween(5.25, 9)}s`);
         strip.style.setProperty("--wobble-delay", `-${randomBetween(0, 9)}s`);
-        strip.append(paper);
+        strip.append(...papers.map(({ el }) => el));
         return strip;
     }));
 }
@@ -228,7 +254,7 @@ const photoUrl = id => `${CATAAS}/cat/${encodeURIComponent(id)}`;
 // Ask cataas for a random photo's id first, so the history can show exactly this photo again
 async function randomPhotoId() {
     try {
-        const res = await fetch(`${CATAAS}/cat?json=true&${Date.now()}`, { signal: AbortSignal.timeout(8000) });
+        const res = await fetch(`${CATAAS}/cat?json=true&${Date.now()}`, {signal: AbortSignal.timeout(8000)});
         return res.ok ? (await res.json()).id : undefined;
     } catch {
         return undefined;
@@ -237,8 +263,8 @@ async function randomPhotoId() {
 
 async function newEntry() {
     const saying = randomSaying();
-    if (isAscii()) return { kind: "ascii", art: sideBySide(pickDistinct(cats, pick([1, 2, 2, 3]))), saying };
-    return { kind: "photo", id: await randomPhotoId(), saying };
+    if (isAscii()) return {kind: "ascii", art: sideBySide(pickDistinct(cats, pick([1, 2, 2, 3]))), saying};
+    return {kind: "photo", id: await randomPhotoId(), saying};
 }
 
 function show(entry) {
@@ -300,13 +326,20 @@ function applyMode() {
 // ---------------------------------------------------------------------------
 
 function loadHistory() {
-    try { shownCats = JSON.parse(localStorage.getItem(HISTORY_KEY)) ?? []; } catch { shownCats = []; }
+    try {
+        shownCats = JSON.parse(localStorage.getItem(HISTORY_KEY)) ?? [];
+    } catch {
+        shownCats = [];
+    }
     if (!Array.isArray(shownCats)) shownCats = [];
 }
 
 function addToHistory(entry) {
     shownCats = [entry, ...shownCats].slice(0, HISTORY_SIZE);
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(shownCats)); } catch { /* storage blocked: history lasts this page only */ }
+    try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(shownCats));
+    } catch { /* storage blocked: history lasts this page only */
+    }
 }
 
 function historyItem(entry) {
@@ -356,7 +389,11 @@ const setEffects = on => {
 // ---------------------------------------------------------------------------
 
 function readHighscore() {
-    try { return Number(localStorage.getItem(HIGHSCORE_KEY)) || 0; } catch { return 0; }
+    try {
+        return Number(localStorage.getItem(HIGHSCORE_KEY)) || 0;
+    } catch {
+        return 0;
+    }
 }
 
 function updateClock() {
@@ -368,7 +405,10 @@ function updateClock() {
 function updateHighscore(elapsed) {
     const best = readHighscore();
     if (elapsed > best) {
-        try { localStorage.setItem(HIGHSCORE_KEY, elapsed); } catch { /* storage blocked: no highscore */ }
+        try {
+            localStorage.setItem(HIGHSCORE_KEY, elapsed);
+        } catch { /* storage blocked: no highscore */
+        }
         // Announce once per page, and not for the very first run (nothing to beat yet)
         if (!highscoreAnnounced && highscoreAtStart > 0) {
             highscoreAnnounced = true;
@@ -384,22 +424,6 @@ function updateHighscore(elapsed) {
 // Settings: saved in localStorage, restored on the next start
 // ---------------------------------------------------------------------------
 
-// TEMPORARY font picker for the menus: loads the chosen Google font on demand (only once) and sets
-// --font-family-menu; the empty choice falls back to the monospace font in style.css
-function applyMenuFont() {
-    const option = menuFont.selectedOptions[0];
-    const family = option?.value;
-    if (family && !document.querySelector(`link[data-font="${family}"]`)) {
-        const link = document.createElement("link");
-        link.rel = "stylesheet";
-        link.dataset.font = family;
-        link.href = `https://fonts.googleapis.com/css2?family=${option.dataset.query}&display=swap`;
-        document.head.append(link);
-    }
-    if (family) document.documentElement.style.setProperty("--font-family-menu", `"${family}", var(--font-family-mono)`);
-    else document.documentElement.style.removeProperty("--font-family-menu");
-}
-
 // Dark mode off = light page; inverted swaps paper and ink (see style.css)
 function applyTheme() {
     document.documentElement.classList.toggle("light", !darkMode.checked);
@@ -409,19 +433,23 @@ function applyTheme() {
 function saveSettings() {
     const settings = {
         ascii: isAscii(), effects: effectsToggle.checked, autoReload: autoReload.checked, seconds: seconds.value,
-        dark: darkMode.checked, inverted: inverted.checked, menuFont: menuFont.value,
+        dark: darkMode.checked, inverted: inverted.checked,
     };
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch { /* storage blocked: don't persist */ }
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    } catch { /* storage blocked: don't persist */
+    }
 }
 
 function restoreSettings() {
     let settings = {};
-    try { settings = JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {}; } catch { /* unreadable: use defaults */ }
+    try {
+        settings = JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {};
+    } catch { /* unreadable: use defaults */
+    }
     setEffects(settings.effects === true);
     darkMode.checked = settings.dark !== false;      // default: on
     inverted.checked = settings.inverted !== false;  // default: on
-    if ([...menuFont.options].some(option => option.value === settings.menuFont)) menuFont.value = settings.menuFont;
-    applyMenuFont();
     applyTheme();
     autoReload.checked = settings.autoReload === true;
     if (Number(settings.seconds) >= 1) seconds.value = settings.seconds;
@@ -434,17 +462,21 @@ function restoreSettings() {
 // ---------------------------------------------------------------------------
 
 // Mode (photos / ASCII) lives in the URL hash
-modeButton.onclick = () => { location.hash = isAscii() ? "" : "ascii"; };
-window.onhashchange = applyMode;
-
-menuFont.onchange = () => {
-    applyMenuFont();
-    saveSettings();
+modeButton.onclick = () => {
+    location.hash = isAscii() ? "" : "ascii";
 };
+window.onhashchange = applyMode;
 
 darkMode.onchange = inverted.onchange = () => {
     applyTheme();
     saveSettings();
+};
+
+// The glow in the background follows the pointer (effects only; style.css hides it otherwise)
+document.onpointermove = e => {
+    if (document.body.classList.contains("calm")) return;
+    glow.style.setProperty("--mx", `${e.clientX}px`);
+    glow.style.setProperty("--my", `${e.clientY}px`);
 };
 
 effectsToggle.onchange = () => {
@@ -467,8 +499,6 @@ resetSettingsButton.onclick = () => {
     setEffects(effectsToggle.defaultChecked);
     darkMode.checked = darkMode.defaultChecked;
     inverted.checked = inverted.defaultChecked;
-    menuFont.value = "";
-    applyMenuFont();
     applyTheme();
     autoReload.checked = autoReload.defaultChecked;
     seconds.value = seconds.defaultValue;
@@ -495,7 +525,8 @@ resetHistoryButton.onclick = () => {
 fullscreenButton.hidden = !document.fullscreenEnabled;
 fullscreenButton.onclick = () => {
     if (document.fullscreenElement) document.exitFullscreen();
-    else document.documentElement.requestFullscreen().catch(() => {});
+    else document.documentElement.requestFullscreen().catch(() => {
+    });
 };
 
 // Drawers (settings, history): a click on the backdrop closes them
@@ -510,13 +541,17 @@ openHistoryButton.onclick = () => {
     openDrawer(historyDrawer);
 };
 for (const drawer of [configDrawer, historyDrawer]) {
-    drawer.onclick = e => { if (e.target === drawer) drawer.close(); };
+    drawer.onclick = e => {
+        if (e.target === drawer) drawer.close();
+    };
 }
 
 // Click on the photo (or on the ASCII cats), Space or Enter: next cat and saying. Keys don't count inside
 // the header or a drawer, and nothing counts in fullscreen (there only auto-reload changes the picture)
 const manualNextAllowed = target => !document.fullscreenElement && !target.closest("header, dialog");
-photo.onclick = art.onclick = e => { if (manualNextAllowed(e.target)) next(); };
+photo.onclick = art.onclick = e => {
+    if (manualNextAllowed(e.target)) next();
+};
 document.onkeydown = e => {
     if ((e.key === " " || e.key === "Enter") && manualNextAllowed(e.target)) {
         e.preventDefault();

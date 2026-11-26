@@ -7,6 +7,8 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="calm"> <!-- effects start switched off; app.js applies the saved setting -->
+<div class="backdrop" aria-hidden="true"></div>
+<div class="glow" aria-hidden="true"></div>
 <main>
   <div class="photo">
     <img alt="Zufälliges Katzenfoto" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
@@ -38,34 +40,12 @@
     <legend>Darstellung</legend>
     <button type="button" id="fullscreen" hidden><span class="enter">Vollbild</span><span class="exit">Vollbild beenden</span></button>
     <label title="Animationen, Effekte und unscharfer Hintergrund"><input type="checkbox" id="effects" role="switch"> Ressourcenfressende Wackelkatze</label>
-    <label><input type="checkbox" id="dark" role="switch" checked> Dark Mode</label>
-    <label><input type="checkbox" id="inverted" role="switch" checked> Invertiert</label>
+    <label><input type="checkbox" id="dark" role="switch" checked> Die dunkle Seite der Miau.</label>
+    <label><input type="checkbox" id="inverted" role="switch" checked> Ich fühle mich heut invertiert.</label>
   </fieldset>
   <fieldset>
     <legend>Auto-Reload</legend>
     <label><input type="checkbox" id="autoreload" role="switch"> Alle <input type="number" id="seconds" value="30" min="1" step="1"> Sekunden neu laden</label>
-  </fieldset>
-  <!-- TEMPORARY: font picker to choose the menu font together; once decided, set that font in style.css
-       (--font-family-menu) and remove this fieldset and applyMenuFont() in app.js -->
-  <fieldset>
-    <legend>Menü-Schrift (zum Ausprobieren)</legend>
-    <select id="menu-font" aria-label="Schrift der Menüs">
-      <optgroup label="Monospace">
-        <option value="" selected>Cascadia Code (Standard)</option>
-        <option value="JetBrains Mono" data-query="JetBrains+Mono:wght@400;700">JetBrains Mono</option>
-        <option value="Fira Code" data-query="Fira+Code:wght@400;700">Fira Code</option>
-        <option value="IBM Plex Mono" data-query="IBM+Plex+Mono:wght@400;700">IBM Plex Mono</option>
-        <option value="Source Code Pro" data-query="Source+Code+Pro:wght@400;700">Source Code Pro</option>
-      </optgroup>
-      <optgroup label="Proportional">
-        <option value="Inter" data-query="Inter:wght@400;700">Inter (wie der Timer)</option>
-        <option value="Space Grotesk" data-query="Space+Grotesk:wght@400;700">Space Grotesk (technisch)</option>
-        <option value="DM Sans" data-query="DM+Sans:wght@400;700">DM Sans (schlicht)</option>
-        <option value="Lexend" data-query="Lexend:wght@400;700">Lexend (sehr gut lesbar)</option>
-        <option value="Nunito" data-query="Nunito:wght@400;700">Nunito (rund, freundlich)</option>
-        <option value="Bricolage Grotesque" data-query="Bricolage+Grotesque:wght@400;700">Bricolage Grotesque (eigenwillig)</option>
-      </optgroup>
-    </select>
   </fieldset>
   <!-- TODO: Cataas settings: filter images by tags, color settings, etc.
   <fieldset>

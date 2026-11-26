@@ -1,8 +1,8 @@
 /* @import cannot use variables: keep families and weights in sync with the variables below */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Love+Ya+Like+A+Sister&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Lexend:wght@400;700&family=Love+Ya+Like+A+Sister&display=swap");
 
 :root {
-    --font-family-name: "Inter";
+    --font-family-name: "Lexend";
     --font-family: var(--font-family-name), system-ui, sans-serif;
     --font-family-saying: "Love Ya Like A Sister", cursive;
     --font-family-mono: "Cascadia Code", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
@@ -47,10 +47,65 @@
     box-sizing: border-box;
 }
 
+/* The page color sits on <html> only: the glow (z-index -1) has to paint above it, and a body background would cover it */
 html, body {
     margin: 0;
     height: 100%;
+}
+
+html {
     background: var(--color-page);
+}
+
+/* Effects only: a soft colored blob in the background follows the mouse pointer (position set by app.js;
+   --mx and --my are registered so the blob glides after the pointer instead of jumping) */
+@property --mx { syntax: "<length>"; inherits: false; initial-value: 50vw; }
+@property --my { syntax: "<length>"; inherits: false; initial-value: 50vh; }
+
+.glow {
+    position: fixed;
+    inset: 0;
+    z-index: -1; /* above the blurred photo (-2), below everything else */
+    pointer-events: none;
+    background: radial-gradient(circle 30vmax at var(--mx) var(--my),
+        color-mix(in srgb, var(--color-highlight) 26%, transparent), transparent);
+    transition: --mx 1s ease-out, --my 1s ease-out;
+}
+
+body.calm .glow {
+    display: none;
+}
+
+/* Effects off: the backdrop stays, but much fainter */
+body.calm .backdrop {
+    opacity: .3;
+}
+
+/* Background with a complex gradient: several soft color fields (translucent, so they work on the light and the
+   dark page and over the blurred photo) on a faint diagonal wash. The layer is larger than the window; with
+   effects on it drifts slowly (a transform, which is cheap), otherwise it stands still. Kept faint, so the
+   light or dark page color stays clearly recognizable (important in ASCII mode). In photo mode the photo
+   (sharp, and its blurred copy) lies over it */
+.backdrop {
+    position: fixed;
+    inset: -25%;
+    z-index: -3; /* above the page color, below the blurred photo (-2) and the glow (-1) */
+    pointer-events: none;
+    background:
+        radial-gradient(40% 40% at 22% 28%, color-mix(in srgb, var(--color-highlight) 25%, transparent), transparent),
+        radial-gradient(35% 45% at 78% 22%, rgb(124 58 237 / .22), transparent),
+        radial-gradient(45% 40% at 70% 78%, rgb(14 165 164 / .2), transparent),
+        radial-gradient(30% 35% at 26% 82%, rgb(236 72 153 / .17), transparent),
+        radial-gradient(25% 25% at 50% 50%, rgb(59 130 246 / .14), transparent),
+        linear-gradient(135deg, rgb(255 95 87 / .06), rgb(80 70 220 / .08));
+    animation: drift 70s ease-in-out infinite alternate;
+    will-change: transform;
+}
+
+@keyframes drift {
+    to {
+        transform: translate(4%, 3%) rotate(6deg) scale(1.08);
+    }
 }
 
 body {
@@ -68,12 +123,16 @@ body {
         content: "";
         position: fixed;
         inset: -3rem;
+        z-index: -2; /* above the backdrop, behind the glow */
         background: var(--photo) center / cover;
         filter: blur(2rem) brightness(var(--photo-dim));
     }
 
     /* ASCII mode: cat and saying stacked, centered */
     &.ascii {
+        --font-family: var(--font-family-mono);
+        --font-family-saying: var(--font-family-mono);
+
         display: flex;
         flex-direction: column;
         justify-content: safe center;
@@ -92,10 +151,12 @@ body {
             rotate: none;
             max-width: min(92vw, 60ch);
             color: var(--color-text);
-            font: clamp(1rem, 3.5vmin, 2.2rem)/1.3 var(--font-family-mono);
+            font: clamp(1rem, 3.5vmin, 2.2rem)/1.3 var(--font-family);
             text-align: center;
 
             .line {
+                justify-content: center;
+                gap: .6ch;
                 width: auto;
                 margin: 0;
                 rotate: none;
@@ -151,8 +212,16 @@ main pre {
     animation: sway 18s ease-in-out infinite alternate;
     will-change: transform;
 
-    /* Hover: the paper frame turns the accent orange (a plain color change, so it also works with effects off) */
-    &:hover img {
+    /* Hover with effects: a glow in the accent color around the photo (a box-shadow on the wrapper,
+       which has no clip-path that would cut it off) */
+    transition: box-shadow .8s ease-in-out;
+
+    body:not(.calm) &:hover {
+        box-shadow: 0 0 4rem .5rem color-mix(in srgb, var(--color-highlight) 55%, transparent);
+    }
+
+    /* Hover without effects: the paper frame turns the accent color (a plain color change, no shadow) */
+    body.calm &:hover img {
         border-color: var(--color-highlight);
     }
 }
@@ -185,6 +254,14 @@ main pre {
     }
 }
 
+/* the accent piece wobbles on its own, around its tilt and lift, on top of the wobble of its strip */
+@keyframes wobble-chip {
+    to {
+        rotate: calc(var(--tilt, 0deg) + var(--chip-wobble, 0deg));
+        translate: .08em calc(var(--lift, 0em) + .05em);
+    }
+}
+
 mark {
     background: none;
     color: var(--color-highlight);
@@ -203,14 +280,14 @@ p {
     max-width: max(58vw, 16rem);
     margin: 0;
     color: var(--color-ink);
-    font-family: var(--font-family-saying);
+    font-family: var(--font-family-saying), serif;
     font-size: clamp(2.2rem, 5vw, 5rem);
     font-weight: var(--font-weight-normal); /* the font has a single weight */
     line-height: 1.2;
 
     /* each strip has its own tilt (--rot) and indent (--indent) */
     .line {
-        display: block;
+        display: flex; /* the papers of a strip sit side by side (in ASCII mode with a gap) */
         width: fit-content;
         margin-left: var(--indent, 0);
         rotate: var(--rot, 0deg);
@@ -219,11 +296,42 @@ p {
         filter: drop-shadow(0 .3rem .45rem color-mix(in srgb, var(--color-shadow) 80%, transparent));
     }
 
+    /* Paper grain: fine gray noise (an SVG filter, drawn once) over the paper color; it is gray and mostly
+       transparent, so it works on light and dark paper and on the accent color alike */
     .paper {
-        display: block;
         padding: .08em .4em;
-        background: var(--color-paper);
+        background: var(--color-paper)
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .4 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
         clip-path: var(--clip);
+    }
+
+    /* highlighted words: their own strip in the accent color, slightly crooked (--tilt and --lift are set
+       per strip by app.js) and lying on top of the paper next to it, so the pieces overlap a little */
+    body:not(.ascii) & {
+        .line > * + * {
+            margin-left: -.25em;
+        }
+
+        /* the wrapper tilts and carries a stronger shadow than the strip, so the piece looks lifted */
+        .chip {
+            display: flex; /* the paper inside stays a block, as tall as the strip */
+            position: relative;
+            z-index: 1;
+            translate: 0 var(--lift, 0);
+            rotate: var(--tilt, 0deg);
+            animation: wobble-chip var(--chip-time, 5s) var(--chip-delay, 0s) ease-in-out infinite alternate;
+            filter: drop-shadow(0 .4rem .5rem color-mix(in srgb, var(--color-shadow) 95%, transparent));
+        }
+
+        .paper.accent {
+            background-color: var(--color-highlight);
+            color: #fff;
+            text-shadow: 0 .02em .05em color-mix(in srgb, var(--color-shadow) 55%, transparent);
+
+            mark {
+                color: inherit;
+            }
+        }
     }
 
     .line + .line {
@@ -257,9 +365,11 @@ header {
         background: var(--color-paper);
         color: var(--color-ink);
         font-size: 1.15em;
+        font-family: var(--font-family-saying), system-ui, sans-serif;
         font-weight: var(--font-weight-bold);
+        letter-spacing: 0.1em;
         text-shadow: none;
-        rotate: -1.5deg;
+        rotate: -.75deg;
         filter: drop-shadow(0 .25rem .5rem color-mix(in srgb, var(--color-shadow) 55%, transparent));
     }
 
@@ -362,8 +472,6 @@ button, input {
 .drawer {
     margin: 0 0 0 auto;
     width: min(25rem, 100vw); /* monospace is wide: room for the longest label on one line */
-    font-family: var(--font-family-menu, var(--font-family-mono)); /* menus are nerdy; buttons and inputs inherit it.
-                                  --font-family-menu is set by the temporary font picker in the settings */
     max-width: none;
     height: 100dvh;
     max-height: none;
@@ -642,8 +750,9 @@ button, input {
     }
 }
 
-/* Animations and effects off (the default; app.js removes .calm when switched on in the drawer): no motion, no blur, no drop shadows,
-   no tilt. These are what make the page slow on weak machines; static clip-paths and plain shadows stay */
+/* Animations and effects off (the default; app.js removes .calm when switched on in the drawer): no motion, no blur,
+   no drop shadows. These are what make the page slow on weak machines; static things stay: clip-paths, plain shadows
+   and the tilt, indent and offset of the text strips (they just stand still) */
 body.calm {
     &::before {
         display: none; /* the blurred copy of the photo behind it */
@@ -654,7 +763,6 @@ body.calm {
         transition: none !important;
         filter: none !important;
         backdrop-filter: none !important;
-        rotate: none !important;
         will-change: auto !important;
     }
 

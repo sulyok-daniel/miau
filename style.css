@@ -1,0 +1,418 @@
+/* @import cannot use variables: keep families and weights in sync with the variables below */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Love+Ya+Like+A+Sister&display=swap");
+
+:root {
+    --font-family-name: "Inter";
+    --font-family: var(--font-family-name), system-ui, sans-serif;
+    --font-family-saying: "Love Ya Like A Sister", cursive;
+    --font-family-mono: "Cascadia Code", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    --font-family-comic: "Comic Sans MS", "Comic Sans", "Chalkboard SE", cursive;
+    --font-weight-normal: 400;
+    --font-weight-bold: 700;
+    --color-text: #fff;
+    --color-page: #0a0a0f;
+    --color-live: #ff5f57;
+    --color-shadow: #000;
+    --color-paper: #f4efe4;
+    --color-ink: #26211c;
+    --color-highlight: #d9480f;
+    --drawer-speed: .35s;
+    --page-margin: clamp(.75rem, 2vw, 1.25rem);
+    color-scheme: dark;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--color-page);
+}
+
+body {
+    font: var(--font-weight-normal) .9rem/1.25 var(--font-family);
+    cursor: pointer;
+
+    /* Easter egg: set by app.js when the saying mentions Comic Sans */
+    &.comic {
+        --font-family: var(--font-family-comic);
+        --font-family-saying: var(--font-family-comic);
+    }
+
+    /* Photos keep their own aspect ratio; the gaps are filled with a blurred, dimmed copy of the photo */
+    &:not(.ascii)::before {
+        content: "";
+        position: fixed;
+        inset: -3rem;
+        background: var(--photo) center / cover;
+        filter: blur(2rem) brightness(.55);
+    }
+
+    /* ASCII mode: cat and saying stacked, centered */
+    &.ascii {
+        display: flex;
+        flex-direction: column;
+        justify-content: safe center;
+        align-items: center;
+        gap: 1.5em;
+        padding: 5rem 1rem 1rem;
+
+        .photo {
+            display: none;
+        }
+
+        /* the saying is plain here: centered monospace text without paper strips */
+        p {
+            position: static;
+            translate: none;
+            rotate: none;
+            max-width: min(92vw, 60ch);
+            color: var(--color-text);
+            font: clamp(1rem, 3.5vmin, 2.2rem)/1.3 var(--font-family-mono);
+            text-align: center;
+
+            .line {
+                width: auto;
+                margin: 0;
+                rotate: none;
+                filter: none;
+                animation: none;
+            }
+
+            .paper {
+                padding: 0;
+                background: none;
+                clip-path: none;
+            }
+        }
+    }
+
+    &:not(.ascii) pre {
+        display: none;
+    }
+}
+
+main {
+    display: contents;
+}
+
+/* ASCII cat (only shown in ASCII mode) */
+pre {
+    margin: 0;
+    font: clamp(.7rem, 4vmin, 2.5rem)/1.1 var(--font-family-mono);
+}
+
+/* Photo with a paper frame, centered at 55% of the width, as large as possible without touching the edges.
+   The wrapper has the photo's ratio (--ratio is set by app.js), sways gently (--dx, --dy, --rot and --scale
+   are randomized per photo) and carries the shadow; the image inside has slightly irregular edges (clip-path) */
+.photo {
+    position: fixed;
+    inset-block: 0;
+    left: 55%;
+    margin-block: auto;
+    translate: -50% 0;
+    width: min(80vw, 88vh * var(--ratio, 1)); /* leaves room for the swaying */
+    aspect-ratio: var(--ratio, 1);
+    filter: drop-shadow(0 .8rem 1.5rem color-mix(in srgb, var(--color-shadow) 60%, transparent));
+    animation: sway 18s ease-in-out infinite alternate;
+    will-change: transform;
+}
+
+img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: .7rem solid var(--color-paper);
+    object-fit: cover;
+    clip-path: var(--clip);
+
+    &[src^="data:"] {
+        visibility: hidden;
+    }
+}
+
+@keyframes sway {
+    to {
+        transform: translate(var(--dx, 0), var(--dy, 0)) rotate(var(--rot, 0deg)) scale(var(--scale, 1));
+    }
+}
+
+/* much subtler than the photo: a slight wobble around the strip's own tilt */
+@keyframes wobble {
+    to {
+        rotate: calc(var(--rot, 0deg) + var(--wobble, 0deg));
+        translate: .1em .04em;
+    }
+}
+
+mark {
+    background: none;
+    color: var(--color-highlight);
+}
+
+/* Saying: tilted at the bottom, centered at 40% of the width, overlapping the photo.
+   There is no box: every line of text sits on its own paper strip (.line, created by app.js) */
+p {
+    position: fixed;
+    z-index: 1;
+    left: 40%;
+    bottom: clamp(1.5rem, 6vh, 4rem);
+    translate: -50% 0;
+    rotate: -2deg;
+    width: max-content;
+    max-width: max(58vw, 16rem);
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-family-saying);
+    font-size: clamp(2.2rem, 5vw, 5rem);
+    font-weight: var(--font-weight-normal); /* the font has a single weight */
+    line-height: 1.2;
+
+    /* each strip has its own tilt (--rot) and indent (--indent) */
+    .line {
+        display: block;
+        width: fit-content;
+        margin-left: var(--indent, 0);
+        rotate: var(--rot, 0deg);
+        animation: wobble var(--wobble-time, 5s) var(--wobble-delay, 0s) ease-in-out infinite alternate;
+        white-space: nowrap;
+        filter: drop-shadow(0 .3rem .45rem color-mix(in srgb, var(--color-shadow) 80%, transparent));
+    }
+
+    .paper {
+        display: block;
+        padding: .08em .4em;
+        background: var(--color-paper);
+        clip-path: var(--clip);
+    }
+
+    .line + .line {
+        margin-top: -.04em;
+    }
+}
+
+/* Top bar: unobtrusive timer left, settings icon right */
+header {
+    position: fixed;
+    top: var(--page-margin);
+    left: var(--page-margin);
+    right: var(--page-margin);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    text-shadow: 0 0 .5em var(--color-shadow), 0 1px 2px color-mix(in srgb, var(--color-shadow) 80%, transparent);
+}
+
+/* Timer: plain label; only the time itself sits on a paper strip like the saying */
+#timer {
+    display: flex;
+    align-items: center;
+    gap: .6em;
+    font-variant-numeric: tabular-nums;
+
+    time {
+        display: inline-block;
+        margin-left: .2em;
+        padding: .2em .6em;
+        background: var(--color-paper);
+        color: var(--color-ink);
+        font-size: 1.15em;
+        font-weight: var(--font-weight-bold);
+        text-shadow: none;
+        rotate: -1.5deg;
+        filter: drop-shadow(0 .25rem .5rem color-mix(in srgb, var(--color-shadow) 55%, transparent));
+    }
+
+    &::before {
+        content: "";
+        width: .55em;
+        height: .55em;
+        border-radius: 50%;
+        background: var(--color-live);
+        box-shadow: 0 0 .5em var(--color-live);
+        animation: pulse 2s ease-in-out infinite;
+    }
+}
+
+@keyframes pulse {
+    50% {
+        opacity: .35;
+    }
+}
+
+/* Highscore line under the timer, aligned with the timer label (dot + gap) */
+#highscore {
+    margin-top: .6rem;
+    padding-left: 1.05rem;
+    font-size: .8rem;
+    opacity: .7;
+
+    &.new { opacity: 1; }
+    &.new .best, &:not(.new) .record { display: none; }
+}
+
+#open {
+    padding: .2em .4em;
+    background: none;
+    border: 0;
+    font-size: 1.5rem;
+    line-height: 1;
+    opacity: .5;
+    transition: opacity .2s;
+
+    &:hover, &:focus-visible {
+        opacity: 1;
+    }
+}
+
+button, input {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+
+:focus-visible {
+    outline: 2px solid var(--color-text);
+    outline-offset: 2px;
+}
+
+/* Side drawer: slides in from the right over the image */
+#config {
+    margin: 0 0 0 auto;
+    width: min(22rem, 100vw);
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    padding: 1.5rem;
+    background: color-mix(in srgb, var(--color-page) 75%, transparent);
+    backdrop-filter: blur(16px) saturate(1.4);
+    border-width: 0 0 0 1px;
+    border-color: color-mix(in srgb, var(--color-text) 16%, transparent);
+    box-shadow: -12px 0 40px color-mix(in srgb, var(--color-shadow) 80%, transparent);
+    overflow-y: auto;
+    cursor: auto;
+    transform: translateX(100%);
+    transition: transform var(--drawer-speed) cubic-bezier(.2, .8, .2, 1),
+        overlay var(--drawer-speed) allow-discrete, display var(--drawer-speed) allow-discrete;
+
+    &[open] {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        transform: none;
+
+        @starting-style {
+            transform: translateX(100%);
+        }
+    }
+
+    /* Page behind the open drawer: dimmed and slightly blurred, fading in and out */
+    &::backdrop {
+        background: transparent;
+        backdrop-filter: blur(0);
+        transition: background-color var(--drawer-speed), backdrop-filter var(--drawer-speed),
+            overlay var(--drawer-speed) allow-discrete, display var(--drawer-speed) allow-discrete;
+    }
+
+    &[open]::backdrop {
+        background: color-mix(in srgb, var(--color-shadow) 40%, transparent);
+        backdrop-filter: blur(6px);
+
+        @starting-style {
+            background: transparent;
+            backdrop-filter: blur(0);
+        }
+    }
+
+    form {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: var(--font-weight-bold);
+    }
+
+    /* Reset section sticks to the bottom of the drawer */
+    .bottom {
+        margin-top: auto;
+    }
+
+    fieldset {
+        display: flex;
+        flex-direction: column;
+        gap: .9em;
+        margin: 0;
+        padding: 1.25rem 0 0;
+        border: 0;
+        border-top: 1px solid color-mix(in srgb, var(--color-text) 16%, transparent);
+    }
+
+    legend {
+        margin-bottom: .9em;
+        padding: 0;
+        font-size: .75rem;
+        font-weight: var(--font-weight-bold);
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        opacity: .75;
+    }
+
+    button {
+        padding: .6em 1em;
+        background: color-mix(in srgb, var(--color-text) 7%, transparent);
+        border: 1px solid color-mix(in srgb, var(--color-text) 16%, transparent);
+        border-radius: .7rem;
+        transition: background .2s, border-color .2s;
+
+        &:hover {
+            background: color-mix(in srgb, var(--color-text) 15%, transparent);
+            border-color: var(--color-text);
+        }
+    }
+
+    form button {
+        padding: .35em .7em;
+    }
+
+    label {
+        display: flex;
+        align-items: center;
+        gap: .6em;
+        cursor: pointer;
+    }
+
+    input[type=checkbox] {
+        width: 1.1em;
+        height: 1.1em;
+        margin: 0;
+        accent-color: var(--color-text);
+    }
+
+    input[type=number] {
+        width: 5.5ch;
+        padding: .25em .5em;
+        background: color-mix(in srgb, var(--color-shadow) 40%, transparent);
+        border: 1px solid color-mix(in srgb, var(--color-text) 16%, transparent);
+        border-radius: .45rem;
+        cursor: text;
+    }
+}
+
+/* Button labels live in the HTML; state decides which one shows */
+.ascii .to-ascii, body:not(.ascii) .to-images,
+:root:fullscreen .enter, :root:not(:fullscreen) .exit {
+    display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
+}

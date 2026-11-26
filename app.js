@@ -1,23 +1,25 @@
 // ---------------------------------------------------------------------------
-// Texts live in plain files next to this page; add or change texts there, not here:
-//   texts/sayings.txt     ready-made sayings, one per line
-//   texts/phrases.txt     parts for generated sayings: [when] + [what] + [ending], one per line
-//   texts/highscores.txt  messages for a new highscore, one per line
-//   texts/cats.txt        ASCII cats, separated by a line with ---
+// Texts live in files next to this page; add or change texts there, not here:
+//   texts/sayings.js     ready-made sayings, one per line
+//   texts/phrases.js     parts for generated sayings: [when] + [what] + [ending], one per line
+//   texts/highscores.js  messages for a new highscore, one per line
+//   texts/cats.js        ASCII cats, separated by a line with ---
+// They are .js files loaded by index.html (each sets TEXTS.<name> to its text) rather than .txt files
+// fetched here, because browsers block fetch() on pages opened straight from disk (file://)
 // ---------------------------------------------------------------------------
-
-const SAYINGS_FILE = "texts/sayings.txt";
-const PHRASES_FILE = "texts/phrases.txt";
-const HIGHSCORES_FILE = "texts/highscores.txt";
-const CATS_FILE = "texts/cats.txt";
 
 const STORAGE_KEY = "miau-lock-settings";
 const HIGHSCORE_KEY = "miau-lock-highscore";
+const HISTORY_KEY = "miau-lock-history";
+
+const CATAAS = "https://cataas.com";
+const HISTORY_SIZE = 50;     // how many shown cats the history keeps
+const THUMBNAIL_WIDTH = 160;
 
 const DEFAULT_RELOAD_SECONDS = 30;
 const READY_MADE_CHANCE = 0.75;
 
-// Highlighted words: "Katze…" and "miau…" (the capture group makes split() keep the matches)
+// Highlighted words: "Katze…", "miau…", "Kaffee…" and "Kuchen…" (the capture group makes split() keep the matches)
 const HIGHLIGHT = /(katze\p{L}*|miau\p{L}*|kaffee\p{L}*|kuchen\p{L}*)/giu;
 
 // ---------------------------------------------------------------------------
@@ -87,16 +89,21 @@ const clock = $("#timer time");
 const highscoreBox = $("#highscore");
 const highscoreTime = $("#highscore .best time");
 const highscoreRecord = $("#highscore .record");
-const drawer = $("#config");
-const openButton = $("#open");
+const configDrawer = $("#config");
+const historyDrawer = $("#history");
+const openConfigButton = $("#open-config");
+const openHistoryButton = $("#open-history");
 const modeButton = $("#mode");
+const effectsToggle = $("#effects");
 const fullscreenButton = $("#fullscreen");
+const historyList = $("#history ol");
 const darkMode = $("#dark");
 const inverted = $("#inverted");
 const autoReload = $("#autoreload");
 const seconds = $("#seconds");
 const resetSettingsButton = $("#reset-settings");
 const resetHighscoreButton = $("#reset-highscore");
+const resetHistoryButton = $("#reset-history");
 
 let sayings = [];            // ready-made
 let phrases = {};            // generated: { when: [...], what: [...], ending: [...] }
@@ -105,6 +112,12 @@ let cats = [];               // each cat is an array of lines
 
 let currentSaying = "";
 let reloadTimeout;
+let showCount = 0;           // detects outdated cataas answers after a quick second click
+
+// Shown cats, newest first: { kind: "photo", id, saying } or { kind: "ascii", art, saying }
+let shownCats = [];
+let currentEntry;
+let pendingEntry;            // shown after a mode switch instead of a new random cat
 
 const startedAt = Date.now();
 let highscoreAtStart = 0;    // what had to be beaten when this page was opened
@@ -209,23 +222,57 @@ function startSway() {
     photo.style.animation = "";
 }
 
-function showPhoto(text) {
-    img.src = "https://cataas.com/cat?" + Date.now(); // timestamp defeats the cache
-    setSaying(text);
+const photoUrl = id => `${CATAAS}/cat/${encodeURIComponent(id)}`;
+
+// Ask cataas for a random photo's id first, so the history can show exactly this photo again
+async function randomPhotoId() {
+    try {
+        const res = await fetch(`${CATAAS}/cat?json=true&${Date.now()}`, { signal: AbortSignal.timeout(8000) });
+        return res.ok ? (await res.json()).id : undefined;
+    } catch {
+        return undefined;
+    }
 }
 
-function showAsciiCat(text) {
-    art.textContent = sideBySide(pickDistinct(cats, pick([1, 2, 2, 3])));
-    setSaying(toAscii(text));
+async function newEntry() {
+    const saying = randomSaying();
+    if (isAscii()) return { kind: "ascii", art: sideBySide(pickDistinct(cats, pick([1, 2, 2, 3]))), saying };
+    return { kind: "photo", id: await randomPhotoId(), saying };
 }
 
-function next() {
-    const text = randomSaying();
+function show(entry) {
+    currentEntry = entry;
     // Easter egg: a Comic Sans saying switches the whole page to Comic Sans
-    document.body.classList.toggle("comic", /comic sans/i.test(text));
-    if (isAscii()) showAsciiCat(text);
-    else showPhoto(text);
+    document.body.classList.toggle("comic", /comic sans/i.test(entry.saying));
+    if (entry.kind === "ascii") {
+        art.textContent = entry.art;
+        setSaying(toAscii(entry.saying));
+    } else {
+        // without an id (cataas JSON unavailable) fall back to a plain random photo; timestamp defeats the cache
+        img.src = entry.id ? photoUrl(entry.id) : `${CATAAS}/cat?${Date.now()}`;
+        setSaying(entry.saying);
+    }
+    if (historyDrawer.open) renderHistory();
     scheduleReload();
+}
+
+async function next() {
+    const count = ++showCount;
+    const entry = await newEntry();
+    if (count !== showCount) return; // a newer click, mode switch or history pick took over meanwhile
+    if (entry.kind === "ascii" || entry.id) addToHistory(entry);
+    show(entry);
+}
+
+// Show a cat from the history again, switching between photos and ASCII if needed
+function restore(entry) {
+    ++showCount;
+    if ((entry.kind === "ascii") === isAscii()) {
+        show(entry);
+    } else {
+        pendingEntry = entry;
+        location.hash = entry.kind === "ascii" ? "ascii" : ""; // hashchange shows pendingEntry
+    }
 }
 
 // Auto-reload: new cat and saying after the configured seconds (the timer keeps running)
@@ -238,9 +285,70 @@ function scheduleReload() {
 
 function applyMode() {
     document.body.classList.toggle("ascii", isAscii());
+    modeButton.title = isAscii() ? "Mit Bildern" : "Ohne Bilder (ASCII-Katzen)";
+    modeButton.setAttribute("aria-label", modeButton.title);
     saveSettings();
-    next();
+    const entry = pendingEntry;
+    pendingEntry = undefined;
+    if (entry) show(entry);
+    else next();
 }
+
+// ---------------------------------------------------------------------------
+// History of shown cats: saved in localStorage, shown as a grid in the history drawer
+// ---------------------------------------------------------------------------
+
+function loadHistory() {
+    try { shownCats = JSON.parse(localStorage.getItem(HISTORY_KEY)) ?? []; } catch { shownCats = []; }
+    if (!Array.isArray(shownCats)) shownCats = [];
+}
+
+function addToHistory(entry) {
+    shownCats = [entry, ...shownCats].slice(0, HISTORY_SIZE);
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(shownCats)); } catch { /* storage blocked: history lasts this page only */ }
+}
+
+function historyItem(entry) {
+    let preview;
+    if (entry.kind === "photo") {
+        preview = document.createElement("img");
+        preview.src = `${photoUrl(entry.id)}?width=${THUMBNAIL_WIDTH}`;
+        preview.alt = "";
+        preview.loading = "lazy";
+    } else {
+        preview = document.createElement("pre");
+        preview.textContent = entry.art;
+    }
+    const button = document.createElement("button");
+    button.type = "button";
+    button.title = entry.kind === "ascii" ? toAscii(entry.saying) : entry.saying; // the saying shows on hover
+    button.setAttribute("aria-label", button.title);
+    if (entry === currentEntry) button.setAttribute("aria-current", "true");
+    button.append(preview);
+    button.onclick = () => {
+        historyDrawer.close();
+        restore(entry);
+    };
+
+    const item = document.createElement("li");
+    item.append(button);
+    return item;
+}
+
+function renderHistory() {
+    historyDrawer.classList.toggle("has-entries", shownCats.length > 0);
+    historyList.replaceChildren(...shownCats.map(historyItem));
+}
+
+// ---------------------------------------------------------------------------
+// Animations and effects (blurred background, shadows, swaying, tilt) are off unless switched on:
+// they are heavy on slow machines
+// ---------------------------------------------------------------------------
+
+const setEffects = on => {
+    effectsToggle.checked = on;
+    document.body.classList.toggle("calm", !on);
+};
 
 // ---------------------------------------------------------------------------
 // Timer and highscore: the highscore is the longest counter ever (shared by all open tabs)
@@ -283,7 +391,7 @@ function applyTheme() {
 
 function saveSettings() {
     const settings = {
-        ascii: isAscii(), autoReload: autoReload.checked, seconds: seconds.value,
+        ascii: isAscii(), effects: effectsToggle.checked, autoReload: autoReload.checked, seconds: seconds.value,
         dark: darkMode.checked, inverted: inverted.checked,
     };
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch { /* storage blocked: don't persist */ }
@@ -292,6 +400,7 @@ function saveSettings() {
 function restoreSettings() {
     let settings = {};
     try { settings = JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {}; } catch { /* unreadable: use defaults */ }
+    setEffects(settings.effects === true);
     darkMode.checked = settings.dark !== false;      // default: on
     inverted.checked = settings.inverted !== false;  // default: on
     applyTheme();
@@ -309,13 +418,18 @@ function restoreSettings() {
 modeButton.onclick = () => { location.hash = isAscii() ? "" : "ascii"; };
 window.onhashchange = applyMode;
 
-window.onresize = relayout;
-document.fonts.onloadingdone = relayout;
-
 darkMode.onchange = inverted.onchange = () => {
     applyTheme();
     saveSettings();
 };
+
+effectsToggle.onchange = () => {
+    setEffects(effectsToggle.checked);
+    saveSettings();
+};
+
+window.onresize = relayout;
+document.fonts.onloadingdone = relayout;
 
 autoReload.onchange = seconds.onchange = () => {
     saveSettings();
@@ -326,6 +440,7 @@ autoReload.onchange = seconds.onchange = () => {
 resetSettingsButton.onclick = () => {
     if (!confirm(resetSettingsButton.dataset.confirm)) return;
     localStorage.removeItem(STORAGE_KEY);
+    setEffects(effectsToggle.defaultChecked);
     darkMode.checked = darkMode.defaultChecked;
     inverted.checked = inverted.defaultChecked;
     applyTheme();
@@ -343,6 +458,13 @@ resetHighscoreButton.onclick = () => {
     highscoreBox.classList.remove("new");
 };
 
+resetHistoryButton.onclick = () => {
+    if (!confirm(resetHistoryButton.dataset.confirm)) return;
+    localStorage.removeItem(HISTORY_KEY);
+    shownCats = [];
+    renderHistory();
+};
+
 // Fullscreen button, shown only where the browser supports it
 fullscreenButton.hidden = !document.fullscreenEnabled;
 fullscreenButton.onclick = () => {
@@ -350,14 +472,25 @@ fullscreenButton.onclick = () => {
     else document.documentElement.requestFullscreen().catch(() => {});
 };
 
-// Settings drawer: a click on the backdrop closes it
-openButton.onclick = () => drawer.showModal();
-drawer.onclick = e => { if (e.target === drawer) drawer.close(); };
+// Drawers (settings, history): a click on the backdrop closes them
+// The drawer itself takes the focus, not its first button, so nothing starts out highlighted
+const openDrawer = drawer => {
+    drawer.showModal();
+    drawer.focus();
+};
+openConfigButton.onclick = () => openDrawer(configDrawer);
+openHistoryButton.onclick = () => {
+    renderHistory();
+    openDrawer(historyDrawer);
+};
+for (const drawer of [configDrawer, historyDrawer]) {
+    drawer.onclick = e => { if (e.target === drawer) drawer.close(); };
+}
 
-// Click anywhere, Space or Enter: next cat and saying, but not on the header or inside the drawer,
-// and not while in fullscreen (there only auto-reload changes the picture)
-const manualNextAllowed = target => !document.fullscreenElement && !target.closest("header, #config");
-document.onclick = e => { if (manualNextAllowed(e.target)) next(); };
+// Click on the photo (or on the ASCII cats), Space or Enter: next cat and saying. Keys don't count inside
+// the header or a drawer, and nothing counts in fullscreen (there only auto-reload changes the picture)
+const manualNextAllowed = target => !document.fullscreenElement && !target.closest("header, dialog");
+photo.onclick = art.onclick = e => { if (manualNextAllowed(e.target)) next(); };
 document.onkeydown = e => {
     if ((e.key === " " || e.key === "Enter") && manualNextAllowed(e.target)) {
         e.preventDefault();
@@ -366,10 +499,9 @@ document.onkeydown = e => {
 };
 
 // ---------------------------------------------------------------------------
-// Start: load the text files, then show the first cat
+// Start: read the texts, then show the first cat
 // ---------------------------------------------------------------------------
 
-const loadFile = file => fetch(file).then(res => res.ok ? res.text() : "").catch(() => "");
 const nonEmptyLines = text => text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
 
 // "[name]" starts a section, every following line is one entry
@@ -391,16 +523,15 @@ function parseCats(text) {
         .filter(cat => cat.join("").trim());
 }
 
-restoreSettings(); // right away, so the theme is right from the first paint
+// A missing or broken text file just means fewer texts, not a broken page
+const texts = globalThis.TEXTS ?? {};
+sayings = nonEmptyLines(texts.sayings ?? "");
+phrases = parseSections(texts.phrases ?? "");
+cats = parseCats(texts.cats ?? "");
+highscoreMessages = nonEmptyLines(texts.highscores ?? "");
 
-Promise.all([SAYINGS_FILE, PHRASES_FILE, CATS_FILE, HIGHSCORES_FILE].map(loadFile))
-    .then(([sayingsText, phrasesText, catsText, highscoresText]) => {
-        sayings = nonEmptyLines(sayingsText);
-        phrases = parseSections(phrasesText);
-        cats = parseCats(catsText);
-        highscoreMessages = nonEmptyLines(highscoresText);
-
-        highscoreAtStart = readHighscore();
-        setInterval(updateClock, 250);
-        applyMode();
-    });
+loadHistory();
+highscoreAtStart = readHighscore();
+setInterval(updateClock, 250);
+restoreSettings();
+applyMode();

@@ -1,3 +1,8 @@
+// Ready-made sayings, one per line.
+// Write the texts between the two backticks; just don't use a backtick ` or ${ inside them.
+// (A .js file instead of .txt, so the page also works when opened straight from disk.)
+globalThis.TEXTS ??= {};
+TEXTS.sayings = String.raw`
 Ich hab vergessen, meinen Bildschirm zu sperren. Jetzt gehört er der Katze.
 Mein Passwort ist „miau123“. War's schon immer.
 Ich bin eigentlich nur drei Katzen in einem Trenchcoat.
@@ -94,3 +99,4 @@ Du hast nicht gesperrt. Die Katze drückt F5. Dauerhaft. Der Server weint.
 Offener Bildschirm: Die Katze fängt den Cursor. Und löscht den Ordner.
 Nicht gesperrt: Die Katze dreht den Ton auf. Volle Lautstärke. Miau.
 Du hast nicht gesperrt. Die Katze tippt die Kündigung. Und sendet.
+`;

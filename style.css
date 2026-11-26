@@ -56,7 +56,6 @@ html, body {
 body {
     font: var(--font-weight-normal) .9rem/1.25 var(--font-family);
     color: var(--color-text);
-    cursor: pointer;
 
     /* Easter egg: set by app.js when the saying mentions Comic Sans */
     &.comic {
@@ -112,7 +111,7 @@ body {
         }
     }
 
-    &:not(.ascii) pre {
+    &:not(.ascii) main pre {
         display: none;
     }
 }
@@ -122,15 +121,25 @@ main {
 }
 
 /* ASCII cat (only shown in ASCII mode) */
-pre {
+/* the cats sit on a padded, rounded area that lights up on hover: a click shows the next cat */
+main pre {
+    cursor: pointer;
     margin: 0;
+    padding: clamp(.75rem, 3vmin, 2rem) clamp(1rem, 4vmin, 3rem);
+    border-radius: 1rem;
     font: clamp(.7rem, 4vmin, 2.5rem)/1.1 var(--font-family-mono);
+    transition: background .2s;
+
+    &:hover {
+        background: color-mix(in srgb, var(--color-text) 12%, transparent);
+    }
 }
 
 /* Photo with a paper frame, centered at 55% of the width, as large as possible without touching the edges.
    The wrapper has the photo's ratio (--ratio is set by app.js), sways gently (--dx, --dy, --rot and --scale
    are randomized per photo) and carries the shadow; the image inside has slightly irregular edges (clip-path) */
 .photo {
+    cursor: pointer; /* a click shows the next cat */
     position: fixed;
     inset-block: 0;
     left: 55%;
@@ -143,7 +152,7 @@ pre {
     will-change: transform;
 }
 
-img {
+.photo img {
     display: block;
     width: 100%;
     height: 100%;
@@ -291,17 +300,44 @@ header {
     }
 }
 
-#open {
-    padding: .2em .4em;
-    background: none;
-    border: 0;
-    font-size: 1.5rem;
-    line-height: 1;
-    opacity: .5;
-    transition: opacity .2s;
+/* Header icons: photos/ASCII, history and settings. Big targets, well apart, so they are easy to hit.
+   Unobtrusive until hovered or focused, then inverted: light background, dark icon */
+.menu {
+    display: flex;
+    gap: 1.75rem;
 
-    &:hover, &:focus-visible {
-        opacity: 1;
+    button {
+        display: grid;
+        place-items: center;
+        min-width: 3.5rem;
+        height: 3.5rem;
+        padding: 0 .6rem;
+        background: none;
+        border: 0;
+        border-radius: .9rem;
+        line-height: 1;
+        text-shadow: none;
+        opacity: .6;
+        transition: opacity .2s, background .2s, color .2s;
+
+        &:hover, &:focus-visible {
+            opacity: 1;
+            background: var(--color-text);
+            color: var(--color-page);
+        }
+    }
+
+    /* icons are drawn in the text color, so they match whatever the emoji font would do */
+    svg {
+        width: 1.75rem;
+        height: 1.75rem;
+    }
+
+    /* the ASCII cat face stands in for an icon, in the ASCII font */
+    .to-ascii {
+        font: var(--font-weight-bold) 1.3rem var(--font-family-mono);
+        letter-spacing: -.05em;
+        white-space: nowrap;
     }
 }
 
@@ -316,10 +352,11 @@ button, input {
     outline-offset: 2px;
 }
 
-/* Side drawer: slides in from the right over the image */
-#config {
+/* Side drawers (settings, history): slide in from the right over the image */
+.drawer {
     margin: 0 0 0 auto;
-    width: min(22rem, 100vw);
+    width: min(25rem, 100vw); /* monospace is wide: room for the longest label on one line */
+    font-family: var(--font-family-mono); /* menus are nerdy; buttons and inputs inherit it */
     max-width: none;
     height: 100dvh;
     max-height: none;
@@ -331,6 +368,7 @@ button, input {
     box-shadow: -12px 0 40px color-mix(in srgb, var(--color-shadow) 80%, transparent);
     overflow-y: auto;
     cursor: auto;
+    outline: none; /* the drawer itself takes the focus when opened (app.js), so no button starts out highlighted */
     transform: translateX(100%);
     transition: transform var(--drawer-speed) cubic-bezier(.2, .8, .2, 1),
         overlay var(--drawer-speed) allow-discrete, display var(--drawer-speed) allow-discrete;
@@ -338,7 +376,7 @@ button, input {
     &[open] {
         display: flex;
         flex-direction: column;
-        gap: 2.5rem;
+        gap: 1.5rem;
         transform: none;
 
         @starting-style {
@@ -392,7 +430,7 @@ button, input {
     }
 
     legend {
-        margin-bottom: .6em;
+        margin-bottom: .9em;
         padding: 0;
         font-size: .75rem;
         font-weight: var(--font-weight-bold);
@@ -401,16 +439,18 @@ button, input {
         opacity: .75;
     }
 
+    /* hovered or focused: inverted, like the header icons */
     button {
-        padding: .6em 1em;
+        padding: .95em 1.2em; /* tall targets: easy to hit */
         background: color-mix(in srgb, var(--color-text) 7%, transparent);
-        border: 1px solid color-mix(in srgb, var(--color-text) 16%, transparent);
+        border: 2px solid color-mix(in srgb, var(--color-text) 28%, transparent);
         border-radius: .7rem;
-        transition: background .2s, border-color .2s;
+        transition: background .2s, border-color .2s, color .2s;
 
-        &:hover {
-            background: color-mix(in srgb, var(--color-text) 15%, transparent);
+        &:hover, &:focus-visible {
+            background: var(--color-text);
             border-color: var(--color-text);
+            color: var(--color-page);
         }
     }
 
@@ -425,47 +465,180 @@ button, input {
         cursor: pointer;
     }
 
-    /* Checkbox as a toggle switch: pill track, round thumb that slides over when checked */
+    /* Checkboxes look like switches: a pill with a knob that moves right and turns the pill white when on */
     input[type=checkbox] {
         appearance: none;
         flex: none;
         position: relative;
-        width: 2.4em;
+        width: 2.3em;
         height: 1.3em;
         margin: 0;
-        background: color-mix(in srgb, var(--color-text) 16%, transparent);
+        background: color-mix(in srgb, var(--color-text) 12%, transparent);
+        border: 1px solid color-mix(in srgb, var(--color-text) 30%, transparent);
         border-radius: 1em;
-        transition: background .2s;
+        transition: background .2s, border-color .2s;
 
         &::before {
             content: "";
             position: absolute;
             top: .15em;
             left: .15em;
-            width: 1em;
-            height: 1em;
+            width: .9em;
+            height: .9em;
             border-radius: 50%;
-            background: color-mix(in srgb, var(--color-text) 70%, transparent);
-            transition: translate .2s cubic-bezier(.2, .8, .2, 1), background .2s;
+            background: var(--color-text);
+            transition: translate .2s, background .2s;
         }
 
         &:checked {
             background: var(--color-text);
-        }
+            border-color: var(--color-text);
 
-        &:checked::before {
-            translate: 1.1em 0;
-            background: var(--color-page);
+            &::before {
+                translate: calc(1em - 2px) 0;
+                background: var(--color-page);
+            }
         }
     }
 
     input[type=number] {
-        width: 5.5ch;
+        width: calc(4ch + 1em + 1.5rem); /* 4 digits + padding + the browser's up/down arrows */
         padding: .25em .5em;
         background: color-mix(in srgb, var(--color-text) 8%, transparent);
-        border: 1px solid color-mix(in srgb, var(--color-text) 16%, transparent);
+        border: 2px solid color-mix(in srgb, var(--color-text) 28%, transparent);
         border-radius: .45rem;
         cursor: text;
+    }
+}
+
+/* Settings drawer: more air between and inside the sections */
+#config {
+    padding: 2rem 1.75rem;
+
+    &[open] {
+        gap: 2.5rem;
+    }
+
+    fieldset {
+        gap: 1.4rem;
+        padding-top: 1.5rem;
+    }
+
+    legend {
+        margin-bottom: 1.3em;
+    }
+
+    /* a switch right after a button (Wackelkatze after Vollbild) gets extra room */
+    button:not([hidden]) + label {
+        margin-top: .7em;
+    }
+}
+
+/* History: not a side drawer but a window in the middle of the screen that fades and grows in.
+   Inside, a grid of square tiles, newest first (filled by app.js); the saying shows on hover,
+   a click shows that cat again */
+#history {
+    margin: auto;
+    width: min(46rem, 100vw - 2rem);
+    height: fit-content; /* auto would stretch between the dialog's insets */
+    max-height: min(52rem, 100dvh - 2rem);
+    border-width: 1px;
+    border-radius: 1rem;
+    box-shadow: 0 12px 40px color-mix(in srgb, var(--color-shadow) 80%, transparent);
+    opacity: 0;
+    transform: scale(.96);
+    transition: transform var(--drawer-speed) cubic-bezier(.2, .8, .2, 1), opacity var(--drawer-speed),
+        overlay var(--drawer-speed) allow-discrete, display var(--drawer-speed) allow-discrete;
+
+    &[open] {
+        opacity: 1;
+        transform: none;
+
+        @starting-style {
+            opacity: 0;
+            transform: scale(.96);
+        }
+    }
+
+    &:not(.has-entries) ol, &.has-entries .empty {
+        display: none;
+    }
+
+    .empty {
+        opacity: .6;
+    }
+
+    ol {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+        gap: .5rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    /* the current cat has a ring around its tile; a hovered tile gets a thick frame on top of the photo
+       (ASCII tiles also invert, from the general button hover) */
+    ol button {
+        display: block;
+        width: 100%;
+        aspect-ratio: 1;
+        padding: 0;
+        overflow: hidden;
+
+        &[aria-current] {
+            outline: 2px solid var(--color-text);
+            outline-offset: 3px;
+        }
+
+        &:hover, &:focus-visible {
+            outline: 4px solid var(--color-text);
+            outline-offset: -4px;
+        }
+    }
+
+    img, pre {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+    }
+
+    img {
+        display: block;
+        object-fit: cover;
+    }
+
+    /* the whole ASCII art, tiny, centered and cut at the edges */
+    pre {
+        display: grid;
+        place-items: center;
+        font: .32rem/1 var(--font-family-mono);
+    }
+
+    .bottom {
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+/* Animations and effects off (the default; app.js removes .calm when switched on in the drawer): no motion, no blur, no drop shadows,
+   no tilt. These are what make the page slow on weak machines; static clip-paths and plain shadows stay */
+body.calm {
+    &::before {
+        display: none; /* the blurred copy of the photo behind it */
+    }
+
+    &, *, *::before, *::after, ::backdrop {
+        animation: none !important;
+        transition: none !important;
+        filter: none !important;
+        backdrop-filter: none !important;
+        rotate: none !important;
+        will-change: auto !important;
+    }
+
+    .drawer {
+        background: color-mix(in srgb, var(--color-page) 96%, transparent);
     }
 }
 

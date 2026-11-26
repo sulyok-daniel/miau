@@ -618,6 +618,24 @@ button, input {
         margin-top: auto;
     }
 
+    /* Link to the repository, the last thing in the drawer (closer to the reset section than the usual gap) */
+    .repo {
+        margin: -1.25rem 0 0;
+        font-size: .8rem;
+        text-align: center;
+        opacity: .75;
+
+        a {
+            color: inherit;
+            text-underline-offset: .2em;
+            cursor: pointer;
+
+            &:hover, &:focus-visible {
+                color: var(--color-highlight);
+            }
+        }
+    }
+
     fieldset {
         display: flex;
         flex-direction: column;

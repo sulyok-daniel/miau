@@ -150,6 +150,11 @@ main pre {
     filter: drop-shadow(0 .8rem 1.5rem color-mix(in srgb, var(--color-shadow) 60%, transparent));
     animation: sway 18s ease-in-out infinite alternate;
     will-change: transform;
+
+    /* Hover: the paper frame turns the accent orange (a plain color change, so it also works with effects off) */
+    &:hover img {
+        border-color: var(--color-highlight);
+    }
 }
 
 .photo img {
@@ -159,6 +164,7 @@ main pre {
     border: .7rem solid var(--color-paper);
     object-fit: cover;
     clip-path: var(--clip);
+    transition: border-color .2s;
 
     &[src^="data:"] {
         visibility: hidden;

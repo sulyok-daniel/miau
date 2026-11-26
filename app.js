@@ -271,6 +271,8 @@ function show(entry) {
     currentEntry = entry;
     // Easter egg: a Comic Sans saying switches the whole page to Comic Sans
     document.body.classList.toggle("comic", /comic sans/i.test(entry.saying));
+    // the saying leans to the left or to the right, differently for every cat
+    saying.parentElement.style.setProperty("--tilt", `${randomSigned(1.5, 2.5)}deg`);
     if (entry.kind === "ascii") {
         art.textContent = entry.art;
         setSaying(toAscii(entry.saying));
@@ -398,8 +400,17 @@ function readHighscore() {
 
 function updateClock() {
     const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-    clock.textContent = formatTime(elapsed);
+    setClock(formatTime(elapsed));
     updateHighscore(elapsed);
+}
+
+// One span per character, so every character can get the same width (see style.css); rebuilt only when
+// the length changes (after 99 hours)
+function setClock(text) {
+    if (clock.children.length !== text.length) {
+        clock.replaceChildren(...Array.from(text, () => document.createElement("span")));
+    }
+    Array.from(text).forEach((character, i) => { clock.children[i].textContent = character; });
 }
 
 function updateHighscore(elapsed) {
@@ -594,5 +605,10 @@ highscoreMessages = nonEmptyLines(texts.highscores ?? "");
 loadHistory();
 highscoreAtStart = readHighscore();
 setInterval(updateClock, 250);
+// The timer strips get rough edges like the sayings (their shape is set once; the strips scale with their content)
+for (const strip of document.querySelectorAll("#timer > span, #timer > time, #highscore .record")) {
+    strip.style.setProperty("--clip", roughPolygon(.3, 3, 8));
+}
+
 restoreSettings();
 applyMode();

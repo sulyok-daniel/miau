@@ -101,6 +101,7 @@ const darkMode = $("#dark");
 const inverted = $("#inverted");
 const autoReload = $("#autoreload");
 const seconds = $("#seconds");
+const menuFont = $("#menu-font");
 const resetSettingsButton = $("#reset-settings");
 const resetHighscoreButton = $("#reset-highscore");
 const resetHistoryButton = $("#reset-history");
@@ -383,6 +384,22 @@ function updateHighscore(elapsed) {
 // Settings: saved in localStorage, restored on the next start
 // ---------------------------------------------------------------------------
 
+// TEMPORARY font picker for the menus: loads the chosen Google font on demand (only once) and sets
+// --font-family-menu; the empty choice falls back to the monospace font in style.css
+function applyMenuFont() {
+    const option = menuFont.selectedOptions[0];
+    const family = option?.value;
+    if (family && !document.querySelector(`link[data-font="${family}"]`)) {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.dataset.font = family;
+        link.href = `https://fonts.googleapis.com/css2?family=${option.dataset.query}&display=swap`;
+        document.head.append(link);
+    }
+    if (family) document.documentElement.style.setProperty("--font-family-menu", `"${family}", var(--font-family-mono)`);
+    else document.documentElement.style.removeProperty("--font-family-menu");
+}
+
 // Dark mode off = light page; inverted swaps paper and ink (see style.css)
 function applyTheme() {
     document.documentElement.classList.toggle("light", !darkMode.checked);
@@ -392,7 +409,7 @@ function applyTheme() {
 function saveSettings() {
     const settings = {
         ascii: isAscii(), effects: effectsToggle.checked, autoReload: autoReload.checked, seconds: seconds.value,
-        dark: darkMode.checked, inverted: inverted.checked,
+        dark: darkMode.checked, inverted: inverted.checked, menuFont: menuFont.value,
     };
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch { /* storage blocked: don't persist */ }
 }
@@ -403,6 +420,8 @@ function restoreSettings() {
     setEffects(settings.effects === true);
     darkMode.checked = settings.dark !== false;      // default: on
     inverted.checked = settings.inverted !== false;  // default: on
+    if ([...menuFont.options].some(option => option.value === settings.menuFont)) menuFont.value = settings.menuFont;
+    applyMenuFont();
     applyTheme();
     autoReload.checked = settings.autoReload === true;
     if (Number(settings.seconds) >= 1) seconds.value = settings.seconds;
@@ -417,6 +436,11 @@ function restoreSettings() {
 // Mode (photos / ASCII) lives in the URL hash
 modeButton.onclick = () => { location.hash = isAscii() ? "" : "ascii"; };
 window.onhashchange = applyMode;
+
+menuFont.onchange = () => {
+    applyMenuFont();
+    saveSettings();
+};
 
 darkMode.onchange = inverted.onchange = () => {
     applyTheme();
@@ -443,6 +467,8 @@ resetSettingsButton.onclick = () => {
     setEffects(effectsToggle.defaultChecked);
     darkMode.checked = darkMode.defaultChecked;
     inverted.checked = inverted.defaultChecked;
+    menuFont.value = "";
+    applyMenuFont();
     applyTheme();
     autoReload.checked = autoReload.defaultChecked;
     seconds.value = seconds.defaultValue;

@@ -362,7 +362,8 @@ button, input {
 .drawer {
     margin: 0 0 0 auto;
     width: min(25rem, 100vw); /* monospace is wide: room for the longest label on one line */
-    font-family: var(--font-family-mono); /* menus are nerdy; buttons and inputs inherit it */
+    font-family: var(--font-family-menu, var(--font-family-mono)); /* menus are nerdy; buttons and inputs inherit it.
+                                  --font-family-menu is set by the temporary font picker in the settings */
     max-width: none;
     height: 100dvh;
     max-height: none;
@@ -504,6 +505,20 @@ button, input {
                 translate: calc(1em - 2px) 0;
                 background: var(--color-page);
             }
+        }
+    }
+
+    select {
+        padding: .7em .8em;
+        background: color-mix(in srgb, var(--color-text) 8%, transparent);
+        border: 2px solid color-mix(in srgb, var(--color-text) 28%, transparent);
+        border-radius: .7rem;
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+
+        option {
+            background: var(--color-page);
         }
     }
 

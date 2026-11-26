@@ -30,14 +30,18 @@
     <button aria-label="Schließen">✕</button>
   </form>
   <fieldset>
-    <legend>Darstellung</legend>
+    <legend>Modus</legend>
     <button type="button" id="mode" autofocus><span class="to-ascii">Ohne Bilder</span><span class="to-images">Mit Bildern</span></button>
     <button type="button" id="fullscreen" hidden><span class="enter">Vollbild</span><span class="exit">Vollbild beenden</span></button>
   </fieldset>
   <fieldset>
+    <legend>Darstellung</legend>
+    <label><input type="checkbox" id="dark" checked> Dark Mode</label>
+    <label><input type="checkbox" id="inverted" checked> Invertiert</label>
+  </fieldset>
+  <fieldset>
     <legend>Auto-Reload</legend>
-    <label><input type="checkbox" id="autoreload"> Automatisch neu laden</label>
-    <label>alle <input type="number" id="seconds" value="30" min="1" step="1"> Sekunden</label>
+    <label><input type="checkbox" id="autoreload"> Alle <input type="number" id="seconds" value="30" min="1" step="1"> Sekunden neu laden</label>
   </fieldset>
   <!-- TODO: Cataas settings: filter images by tags, color settings, etc.
   <fieldset>

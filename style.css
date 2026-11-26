@@ -9,16 +9,38 @@
     --font-family-comic: "Comic Sans MS", "Comic Sans", "Chalkboard SE", cursive;
     --font-weight-normal: 400;
     --font-weight-bold: 700;
+    /* Default: dark mode, not inverted (dark paper, light ink). app.js sets .light (dark mode off) and
+       .inverted (paper and ink swapped) on this element; the defaults in the settings are both on */
     --color-text: #fff;
     --color-page: #0a0a0f;
     --color-live: #ff5f57;
     --color-shadow: #000;
-    --color-paper: #f4efe4;
-    --color-ink: #26211c;
+    --color-paper: #26211c;
+    --color-ink: #f4efe4;
     --color-highlight: #d9480f;
+    --photo-dim: .55;
     --drawer-speed: .35s;
     --page-margin: clamp(.75rem, 2vw, 1.25rem);
     color-scheme: dark;
+
+    &.light {
+        --color-text: #14141a;
+        --color-page: #f2f2f5;
+        --color-paper: #f4efe4;
+        --color-ink: #26211c;
+        --photo-dim: 1.1;
+        color-scheme: light;
+    }
+
+    &.inverted {
+        --color-paper: #f4efe4;
+        --color-ink: #26211c;
+    }
+
+    &.light.inverted {
+        --color-paper: #26211c;
+        --color-ink: #f4efe4;
+    }
 }
 
 *, *::before, *::after {
@@ -33,6 +55,7 @@ html, body {
 
 body {
     font: var(--font-weight-normal) .9rem/1.25 var(--font-family);
+    color: var(--color-text);
     cursor: pointer;
 
     /* Easter egg: set by app.js when the saying mentions Comic Sans */
@@ -47,7 +70,7 @@ body {
         position: fixed;
         inset: -3rem;
         background: var(--photo) center / cover;
-        filter: blur(2rem) brightness(.55);
+        filter: blur(2rem) brightness(var(--photo-dim));
     }
 
     /* ASCII mode: cat and saying stacked, centered */
@@ -202,7 +225,7 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    text-shadow: 0 0 .5em var(--color-shadow), 0 1px 2px color-mix(in srgb, var(--color-shadow) 80%, transparent);
+    text-shadow: 0 0 .5em var(--color-page), 0 1px 2px color-mix(in srgb, var(--color-page) 80%, transparent);
 }
 
 /* Timer: plain label; only the time itself sits on a paper strip like the saying */
@@ -251,6 +274,21 @@ header {
 
     &.new { opacity: 1; }
     &.new .best, &:not(.new) .record { display: none; }
+
+    /* New highscore message: styled like the saying (handwriting font, tilted strip), on the accent color */
+    .record {
+        display: inline-block;
+        padding: .1em .5em;
+        background: var(--color-highlight);
+        color: #fff;
+        font-family: var(--font-family-saying);
+        font-size: 1.3rem;
+        font-weight: var(--font-weight-normal); /* the font has a single weight */
+        line-height: 1.2;
+        text-shadow: none;
+        rotate: -1.5deg;
+        filter: drop-shadow(0 .3rem .45rem color-mix(in srgb, var(--color-shadow) 80%, transparent));
+    }
 }
 
 #open {
@@ -300,7 +338,7 @@ button, input {
     &[open] {
         display: flex;
         flex-direction: column;
-        gap: 1.5rem;
+        gap: 2.5rem;
         transform: none;
 
         @starting-style {
@@ -354,7 +392,7 @@ button, input {
     }
 
     legend {
-        margin-bottom: .9em;
+        margin-bottom: .6em;
         padding: 0;
         font-size: .75rem;
         font-weight: var(--font-weight-bold);
@@ -387,17 +425,44 @@ button, input {
         cursor: pointer;
     }
 
+    /* Checkbox as a toggle switch: pill track, round thumb that slides over when checked */
     input[type=checkbox] {
-        width: 1.1em;
-        height: 1.1em;
+        appearance: none;
+        flex: none;
+        position: relative;
+        width: 2.4em;
+        height: 1.3em;
         margin: 0;
-        accent-color: var(--color-text);
+        background: color-mix(in srgb, var(--color-text) 16%, transparent);
+        border-radius: 1em;
+        transition: background .2s;
+
+        &::before {
+            content: "";
+            position: absolute;
+            top: .15em;
+            left: .15em;
+            width: 1em;
+            height: 1em;
+            border-radius: 50%;
+            background: color-mix(in srgb, var(--color-text) 70%, transparent);
+            transition: translate .2s cubic-bezier(.2, .8, .2, 1), background .2s;
+        }
+
+        &:checked {
+            background: var(--color-text);
+        }
+
+        &:checked::before {
+            translate: 1.1em 0;
+            background: var(--color-page);
+        }
     }
 
     input[type=number] {
         width: 5.5ch;
         padding: .25em .5em;
-        background: color-mix(in srgb, var(--color-shadow) 40%, transparent);
+        background: color-mix(in srgb, var(--color-text) 8%, transparent);
         border: 1px solid color-mix(in srgb, var(--color-text) 16%, transparent);
         border-radius: .45rem;
         cursor: text;

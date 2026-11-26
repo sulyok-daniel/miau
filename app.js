@@ -15,10 +15,10 @@ const STORAGE_KEY = "miau-lock-settings";
 const HIGHSCORE_KEY = "miau-lock-highscore";
 
 const DEFAULT_RELOAD_SECONDS = 30;
-const READY_MADE_CHANCE = 0.5;
+const READY_MADE_CHANCE = 0.75;
 
 // Highlighted words: "Katze…" and "miau…" (the capture group makes split() keep the matches)
-const HIGHLIGHT = /(katze\p{L}*|miau\p{L}*)/giu;
+const HIGHLIGHT = /(katze\p{L}*|miau\p{L}*|kaffee\p{L}*|kuchen\p{L}*)/giu;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -91,6 +91,8 @@ const drawer = $("#config");
 const openButton = $("#open");
 const modeButton = $("#mode");
 const fullscreenButton = $("#fullscreen");
+const darkMode = $("#dark");
+const inverted = $("#inverted");
 const autoReload = $("#autoreload");
 const seconds = $("#seconds");
 const resetSettingsButton = $("#reset-settings");
@@ -273,14 +275,26 @@ function updateHighscore(elapsed) {
 // Settings: saved in localStorage, restored on the next start
 // ---------------------------------------------------------------------------
 
+// Dark mode off = light page; inverted swaps paper and ink (see style.css)
+function applyTheme() {
+    document.documentElement.classList.toggle("light", !darkMode.checked);
+    document.documentElement.classList.toggle("inverted", inverted.checked);
+}
+
 function saveSettings() {
-    const settings = { ascii: isAscii(), autoReload: autoReload.checked, seconds: seconds.value };
+    const settings = {
+        ascii: isAscii(), autoReload: autoReload.checked, seconds: seconds.value,
+        dark: darkMode.checked, inverted: inverted.checked,
+    };
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch { /* storage blocked: don't persist */ }
 }
 
 function restoreSettings() {
     let settings = {};
     try { settings = JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {}; } catch { /* unreadable: use defaults */ }
+    darkMode.checked = settings.dark !== false;      // default: on
+    inverted.checked = settings.inverted !== false;  // default: on
+    applyTheme();
     autoReload.checked = settings.autoReload === true;
     if (Number(settings.seconds) >= 1) seconds.value = settings.seconds;
     // An explicit #hash in the URL wins over the saved mode
@@ -298,6 +312,11 @@ window.onhashchange = applyMode;
 window.onresize = relayout;
 document.fonts.onloadingdone = relayout;
 
+darkMode.onchange = inverted.onchange = () => {
+    applyTheme();
+    saveSettings();
+};
+
 autoReload.onchange = seconds.onchange = () => {
     saveSettings();
     scheduleReload();
@@ -307,6 +326,9 @@ autoReload.onchange = seconds.onchange = () => {
 resetSettingsButton.onclick = () => {
     if (!confirm(resetSettingsButton.dataset.confirm)) return;
     localStorage.removeItem(STORAGE_KEY);
+    darkMode.checked = darkMode.defaultChecked;
+    inverted.checked = inverted.defaultChecked;
+    applyTheme();
     autoReload.checked = autoReload.defaultChecked;
     seconds.value = seconds.defaultValue;
     scheduleReload();
@@ -369,6 +391,8 @@ function parseCats(text) {
         .filter(cat => cat.join("").trim());
 }
 
+restoreSettings(); // right away, so the theme is right from the first paint
+
 Promise.all([SAYINGS_FILE, PHRASES_FILE, CATS_FILE, HIGHSCORES_FILE].map(loadFile))
     .then(([sayingsText, phrasesText, catsText, highscoresText]) => {
         sayings = nonEmptyLines(sayingsText);
@@ -378,6 +402,5 @@ Promise.all([SAYINGS_FILE, PHRASES_FILE, CATS_FILE, HIGHSCORES_FILE].map(loadFil
 
         highscoreAtStart = readHighscore();
         setInterval(updateClock, 250);
-        restoreSettings();
         applyMode();
     });

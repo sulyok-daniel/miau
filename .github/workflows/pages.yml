@@ -1,0 +1,46 @@
+# Deploys the site to GitHub Pages on every push to main. Before uploading, it writes the version number (the number
+# of commits on main), commit hash and date into index.html (data-commit="local" on #version), so the settings
+# drawer shows which version is running.
+# Needs Settings -> Pages -> Source: "GitHub Actions".
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the whole history: the version number counts the commits
+
+      - name: Stamp commit into the page
+        run: |
+          date=$(git log -1 --format=%cI)
+          number=$(git rev-list --count HEAD)
+          sed -i "s|data-commit=\"local\"|data-commit=\"$GITHUB_SHA\" data-number=\"$number\" data-date=\"$date\"|" index.html
+          grep -q "data-commit=\"$GITHUB_SHA\"" index.html # fail instead of deploying without a version
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

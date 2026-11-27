@@ -526,7 +526,7 @@ body:not(.ascii) #timer time {
     }
 }
 
-/* Header icons: photos/ASCII, history and settings. Big targets, well apart, so they are easy to hit.
+/* Header icons: photos/ASCII, animal, history and settings. Big targets, well apart, so they are easy to hit.
    Unobtrusive until hovered or focused, then inverted: light background, dark icon */
 .menu {
     display: flex;
@@ -564,6 +564,48 @@ body:not(.ascii) #timer time {
         font: var(--font-weight-bold) 1.3rem var(--font-family-mono);
         letter-spacing: -.05em;
         white-space: nowrap;
+    }
+}
+
+/* Animal menu: a small panel under the paw button (positioned by app.js), one row per animal,
+   the current one marked. Looks like the drawers: translucent page color, blurred */
+#animals {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    padding: .4rem;
+    min-width: 11rem;
+    background: color-mix(in srgb, var(--color-page) 85%, transparent);
+    backdrop-filter: blur(16px) saturate(1.4);
+    color: var(--color-text);
+    border: 1px solid color-mix(in srgb, var(--color-text) 16%, transparent);
+    border-radius: .9rem;
+    box-shadow: 0 12px 40px color-mix(in srgb, var(--color-shadow) 80%, transparent);
+    text-shadow: none;
+
+    &:popover-open {
+        display: flex;
+        flex-direction: column;
+        gap: .2rem;
+    }
+
+    button {
+        padding: .8em 1em; /* tall targets: easy to hit */
+        background: none;
+        border: 0;
+        border-radius: .6rem;
+        text-align: left;
+        transition: background .2s, color .2s;
+
+        &[aria-current] {
+            background: color-mix(in srgb, var(--color-text) 12%, transparent);
+            font-weight: var(--font-weight-bold);
+        }
+
+        &:hover, &:focus-visible {
+            background: var(--color-text);
+            color: var(--color-page);
+        }
     }
 }
 
@@ -644,9 +686,18 @@ button, input {
         margin-top: auto;
     }
 
-    /* Link to the repository, the last thing in the drawer (closer to the reset section than the usual gap) */
+    /* Line between the reset section and the repository link, well below the buttons: the link and version
+       are a footer, not part of the settings */
+    hr {
+        width: 100%;
+        margin: 2.5rem 0 0; /* on top of the drawer's gap */
+        border: 0;
+        border-top: 1px solid color-mix(in srgb, var(--color-text) 16%, transparent);
+    }
+
+    /* Link to the repository, the last thing in the drawer, under the line (closer to it than the usual gap) */
     .repo {
-        margin: -1.25rem 0 0;
+        margin: -1rem 0 0;
         font-size: .8rem;
         text-align: center;
         opacity: .75;
@@ -658,6 +709,25 @@ button, input {
 
             &:hover, &:focus-visible {
                 color: var(--color-highlight);
+            }
+        }
+    }
+
+    /* Deployed version, the very last line: even smaller and fainter, set well apart from the repository link
+       (a different topic) */
+    #version {
+        margin: -.75rem 0 0;
+        font-size: .7rem;
+        text-align: center;
+        opacity: .5;
+
+        a {
+            color: inherit;
+            text-decoration: none;
+            cursor: pointer;
+
+            &:hover, &:focus-visible {
+                text-decoration: underline;
             }
         }
     }
@@ -741,20 +811,6 @@ button, input {
                 translate: calc(1em - 2px) 0;
                 background: var(--color-page);
             }
-        }
-    }
-
-    select {
-        padding: .7em .8em;
-        background: color-mix(in srgb, var(--color-text) 8%, transparent);
-        border: 2px solid color-mix(in srgb, var(--color-text) 28%, transparent);
-        border-radius: .7rem;
-        font: inherit;
-        color: inherit;
-        cursor: pointer;
-
-        option {
-            background: var(--color-page);
         }
     }
 
@@ -894,7 +950,7 @@ body.calm {
         will-change: auto !important;
     }
 
-    .drawer {
+    .drawer, #animals {
         background: color-mix(in srgb, var(--color-page) 96%, transparent);
     }
 }

@@ -101,7 +101,8 @@ const seconds = $("#seconds");
 const resetSettingsButton = $("#reset-settings");
 const resetHighscoreButton = $("#reset-highscore");
 const resetHistoryButton = $("#reset-history");
-const animalSelect = $("#animal");
+const animalMenu = $("#animals");
+const openAnimalsButton = $("#open-animals");
 
 // The registered animals (animals/*/animal.js); the default is always the cat
 const animals = globalThis.ANIMALS ?? {};
@@ -318,7 +319,9 @@ function applyAnimal() {
     document.title = ui.title;
     img.alt = ui.photoAlt;
     art.setAttribute("aria-label", ui.artLabel);
-    animalSelect.value = currentAnimal();
+    for (const button of animalMenu.children) {
+        button.toggleAttribute("aria-current", button.value === currentAnimal());
+    }
 }
 
 function applyMode() {
@@ -501,9 +504,24 @@ function restoreSettings() {
 modeButton.onclick = () => {
     location.hash = hashFor(currentAnimal(), !isAscii());
 };
-animalSelect.replaceChildren(...Object.entries(animals).map(([name, {emoji, plural}]) => new Option(`${emoji} ${plural}`, name)));
-animalSelect.onchange = () => {
-    location.hash = hashFor(animalSelect.value, isAscii());
+// Animal menu: a popover under the paw button, one button per animal; picking one closes it
+animalMenu.replaceChildren(...Object.entries(animals).map(([name, {emoji, plural}]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.value = name;
+    button.textContent = `${emoji} ${plural}`;
+    button.onclick = () => {
+        animalMenu.hidePopover();
+        if (name !== currentAnimal()) location.hash = hashFor(name, isAscii());
+    };
+    return button;
+}));
+// placed right under the paw button, right-aligned with it (the popover sits in the top layer, so position: fixed)
+animalMenu.ontoggle = e => {
+    if (e.newState !== "open") return;
+    const rect = openAnimalsButton.getBoundingClientRect();
+    animalMenu.style.top = `${rect.bottom + 8}px`;
+    animalMenu.style.right = `${Math.max(8, innerWidth - rect.right)}px`;
 };
 window.onhashchange = applyMode;
 
@@ -568,6 +586,21 @@ fullscreenButton.onclick = () => {
     else document.documentElement.requestFullscreen().catch(() => {
     });
 };
+
+// Version at the bottom of the settings: number (commits on main), commit and date, stamped in by the deploy
+// workflow; linked to the commit on GitHub
+const versionBox = $("#version");
+const {commit, number, date} = versionBox.dataset;
+if (commit === "local") versionBox.textContent = "Lokale Version";
+else {
+    const link = document.createElement("a");
+    link.href = `${$(".repo a").href}/commit/${commit}`;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = number ? `Version ${number} (${commit.slice(0, 7)})` : `Version ${commit.slice(0, 7)}`;
+    if (date) link.textContent += ` vom ${new Date(date).toLocaleDateString("de-DE")}`;
+    versionBox.replaceChildren(link);
+}
 
 // Drawers (settings, history): a click on the backdrop closes them
 // The drawer itself takes the focus, not its first button, so nothing starts out highlighted

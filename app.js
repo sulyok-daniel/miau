@@ -135,6 +135,7 @@ let highscoreAtStart = 0;    // what had to be beaten when this page was opened
 let highscoreAnnounced = false;
 
 // Animal and mode live in the URL hash: "" (cat photos), "#ascii", "#dog", "#dog-ascii"
+// (the start URL may also carry ?animal=cat|dog, see restoreSettings)
 const hashParts = () => location.hash.slice(1).split("-");
 const isAscii = () => hashParts().includes("ascii");
 const currentAnimal = () => (hashParts().includes("dog") ? "dog" : "cat");
@@ -526,9 +527,19 @@ function restoreSettings() {
     applyTheme();
     autoReload.checked = settings.autoReload === true;
     if (Number(settings.seconds) >= 1) seconds.value = settings.seconds;
-    // An explicit #hash in the URL wins over the saved animal and mode
-    const hash = hashFor(settings.animal, settings.ascii);
-    if (hash && !location.hash) history.replaceState(null, "", `#${hash}`);
+    // Explicit URL wins over the saved animal and mode: ?animal=cat|dog, then #hash
+    const url = new URL(location.href);
+    const queryAnimal = url.searchParams.get("animal")?.toLowerCase();
+    if (queryAnimal === "cat" || queryAnimal === "dog") {
+        // taken over once into the hash (which the animal select and mode button use), then dropped from the URL
+        const ascii = location.hash ? isAscii() : settings.ascii;
+        url.searchParams.delete("animal");
+        url.hash = hashFor(queryAnimal, ascii);
+        history.replaceState(null, "", url);
+    } else {
+        const hash = hashFor(settings.animal, settings.ascii);
+        if (hash && !location.hash) history.replaceState(null, "", `#${hash}`);
+    }
 }
 
 // ---------------------------------------------------------------------------

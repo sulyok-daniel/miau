@@ -426,6 +426,32 @@ body:not(.ascii) #timer time {
     font-size: 2.6rem;
 }
 
+/* Narrow screens: shrink the strips so timer and menu icons fit side by side without wrapping */
+#timer > :is(span, time) {
+    white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+    .photo,
+    p {
+        left: 50%; /* desktop offsets them (55% / 40%) for a casual look */
+    }
+
+    header .menu { /* header prefix: the base .menu rule further down would win on gap otherwise */
+        flex-direction: column;
+        gap: .5rem;
+    }
+
+    #timer > span {
+        font-size: .6rem;
+    }
+
+    body:not(.ascii) #timer time,
+    #timer > time {
+        font-size: 1.8rem;
+    }
+}
+
 /* ASCII mode: no paper, just text */
 .ascii #timer {
     filter: none;

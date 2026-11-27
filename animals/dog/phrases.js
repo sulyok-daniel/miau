@@ -1,9 +1,24 @@
-// Parts for generated sayings in the dog mode: [when] + [what] + [ending], one per line.
-// A missing [when] section uses the one from texts/phrases.js.
+// Parts for generated sayings: [when] + [what] + [ending], one per line. (dog mode)
 // Write the texts between the two backticks; just don't use a backtick ` or ${ inside them.
 // (A .js file instead of .txt, so the page also works when opened straight from disk.)
 globalThis.TEXTS ??= {};
-TEXTS.dogPhrases = String.raw`
+(TEXTS.dog ??= {}).phrases = String.raw`
+[when]
+Ab heute
+Ab morgen
+Jeden Freitag
+Ab sofort
+Nach der Mittagspause
+Bis Weihnachten
+In jedem Meeting
+Zu meinem Geburtstag
+Jeden Montag
+Ab nächster Woche
+Bis zur Rente
+Bei jedem Videocall
+Vor jedem Kaffee
+Ab dem nächsten Sprint
+
 [what]
 belle ich bei jeder Frage
 bringe ich Leckerli für alle mit

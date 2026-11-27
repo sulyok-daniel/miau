@@ -1,8 +1,8 @@
-// ASCII cats, separated by a line with ---.
+// ASCII art, separated by a line with ---. (cat mode)
 // Write the texts between the two backticks; just don't use a backtick ` or ${ inside them.
 // (A .js file instead of .txt, so the page also works when opened straight from disk.)
 globalThis.TEXTS ??= {};
-TEXTS.cats = String.raw`
+(TEXTS.cat ??= {}).arts = String.raw`
  /\_/\
 ( o.o )
  > ^ <

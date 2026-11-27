@@ -1,29 +1,21 @@
 // ---------------------------------------------------------------------------
-// Texts live in files next to this page; add or change texts there, not here:
-//   texts/sayings.js     ready-made sayings, one per line
-//   texts/phrases.js     parts for generated sayings: [when] + [what] + [ending], one per line
-//   texts/highscores.js  messages for a new highscore, one per line
-//   texts/cats.js        ASCII cats, separated by a line with ---
-//   texts/dog-*.js, texts/dogs.js   the same for the dog mode (dog-phrases.js may leave out [when])
-// They are .js files loaded by index.html (each sets TEXTS.<name> to its text) rather than .txt files
-// fetched here, because browsers block fetch() on pages opened straight from disk (file://)
+// Everything that differs per animal lives in animals/<name>/animal.js (labels, image source, highlighted words)
+// and the other files in that folder (sayings, phrases, highscore messages, ASCII art); see animals/cat/animal.js for how to add one.
+// They are .js files loaded by index.html rather than .txt files fetched here, because browsers block
+// fetch() on pages opened straight from disk (file://)
 // ---------------------------------------------------------------------------
 
 const STORAGE_KEY = "miau-lock-settings";
 const HIGHSCORE_KEY = "miau-lock-highscore";
 const HISTORY_KEY = "miau-lock-history";
 
-const CATAAS = "https://cataas.com";
-const DOG_API = "https://dog.ceo/api/breeds/image/random"; // answers { message: <image url>, status: "success" }
-const HISTORY_SIZE = 50;     // how many shown cats the history keeps
-const THUMBNAIL_WIDTH = 160;
+const HISTORY_SIZE = 50;     // how many shown pictures the history keeps
 
 const DEFAULT_RELOAD_SECONDS = 30;
 const READY_MADE_CHANCE = 0.75;
 
-// Highlighted words: "Katze…", "miau…", "Kaffee…", "Kuchen…", "Hund…", "wuff…", "Leckerli…" and "Gassi…"
-// (the capture group makes split() keep the matches)
-const HIGHLIGHT = /(katze\p{L}*|miau\p{L}*|kaffee\p{L}*|kuchen\p{L}*|hund\p{L}*|wuff\p{L}*|leckerli\p{L}*|gassi\p{L}*)/giu;
+// Highlighted words in every animal's mode, besides the animal's own (animals/<name>/animal.js)
+const COMMON_HIGHLIGHT = ["kaffee", "kuchen"];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -62,19 +54,20 @@ const formatTime = seconds =>
 // Replace non-ASCII characters so the saying is plain ASCII text
 const ASCII_REPLACEMENTS = [
     [/ä/g, "ae"], [/ö/g, "oe"], [/ü/g, "ue"], [/Ä/g, "Ae"], [/Ö/g, "Oe"], [/Ü/g, "Ue"], [/ß/g, "ss"],
-    [/[„“”]/g, '"'], [/[‚‘’]/g, "'"], [/[–—]/g, "-"], [/…/g, "..."], [/😺/g, "=^.^="], [/[🐶🐕]/gu, "U^.^U"],
+    [/[„“”]/g, '"'], [/[‚‘’]/g, "'"], [/[–—]/g, "-"], [/…/g, "..."],
     [/[^\x00-\x7F]/g, ""],
 ];
 const toAscii = text =>
-    ASCII_REPLACEMENTS.reduce((result, [pattern, replacement]) => result.replace(pattern, replacement), text).trim();
+    ASCII_REPLACEMENTS.reduce((result, [pattern, replacement]) => result.replace(pattern, replacement),
+        text.replace(animal().emojiPattern, animal().face)).trim();
 
-// Put cats next to each other, bottom-aligned, as one block of text
-const sideBySide = cats => {
-    const height = Math.max(0, ...cats.map(cat => cat.length));
-    const columns = cats.map(cat => {
-        const width = Math.max(...cat.map(line => line.length));
-        const padding = Array(height - cat.length).fill("");
-        return [...padding, ...cat].map(line => line.padEnd(width));
+// Put ASCII arts next to each other, bottom-aligned, as one block of text
+const sideBySide = arts => {
+    const height = Math.max(0, ...arts.map(art => art.length));
+    const columns = arts.map(art => {
+        const width = Math.max(...art.map(line => line.length));
+        const padding = Array(height - art.length).fill("");
+        return [...padding, ...art].map(line => line.padEnd(width));
     });
     const rows = Array.from({length: height}, (_, row) => columns.map(column => column[row]).join("   ").trimEnd());
     return rows.join("\n");
@@ -110,23 +103,20 @@ const resetHighscoreButton = $("#reset-highscore");
 const resetHistoryButton = $("#reset-history");
 const animalSelect = $("#animal");
 
-// Texts per animal ("cat", "dog"), filled at the start from texts/:
-// { sayings: [...] (ready-made), phrases: { when, what, ending } (generated), highscores: [...], arts: [[lines], ...] }
-let animals = {};
+// The registered animals (animals/*/animal.js); the default is always the cat
+const animals = globalThis.ANIMALS ?? {};
+const DEFAULT_ANIMAL = "cat";
 
-// Texts in the page that depend on the animal; texts with a data-dog attribute in index.html are switched too
-const LABELS = {
-    cat: {title: "Lock your screen 🐈", photo: "Zufälliges Katzenfoto", art: "Katzen aus Textzeichen", toAscii: "Ohne Bilder (ASCII-Katzen)"},
-    dog: {title: "Lock your screen 🐕", photo: "Zufälliges Hundefoto", art: "Hunde aus Textzeichen", toAscii: "Ohne Bilder (ASCII-Hunde)"},
-};
+// Texts per animal, parsed at the start from animals/<name>/*.js:
+// { sayings: [...] (ready-made), phrases: { when, what, ending } (generated), highscores: [...], arts: [[lines], ...] }
+const texts = {};
 
 let currentSaying = "";
 let reloadTimeout;
 let showCount = 0;           // detects outdated cataas answers after a quick second click
 
-// Shown cats and dogs, newest first: { kind: "photo", animal, id | url, saying } or { kind: "ascii", animal, art, saying }
-// (cats have a cataas id, dogs the image url; entries from before the dog mode have no animal and are cats)
-let shownCats = [];
+// Shown pictures, newest first: { kind: "photo", animal, src, thumb?, saying } or { kind: "ascii", animal, art, saying }
+let shownEntries = [];
 let currentEntry;
 let pendingEntry;            // shown after a mode switch instead of a new random cat
 
@@ -134,23 +124,19 @@ const startedAt = Date.now();
 let highscoreAtStart = 0;    // what had to be beaten when this page was opened
 let highscoreAnnounced = false;
 
-// Animal and mode live in the URL hash: "" (cat photos), "#ascii", "#dog", "#dog-ascii"
-// (the start URL may also carry ?animal=cat|dog, see restoreSettings)
+// Animal and mode live in the URL hash: "<animal>", "<animal>-ascii" or "ascii"; the default animal may be left out
+// (the start URL may also carry ?animal=<name>, see restoreSettings)
 const hashParts = () => location.hash.slice(1).split("-");
 const isAscii = () => hashParts().includes("ascii");
-const currentAnimal = () => (hashParts().includes("dog") ? "dog" : "cat");
-const hashFor = (animal, ascii) => [animal === "dog" && "dog", ascii && "ascii"].filter(Boolean).join("-");
-const entryAnimal = entry => entry.animal ?? "cat";
-const texts = () => animals[currentAnimal()] ?? {};
+const currentAnimal = () => hashParts().find(part => animals[part]) ?? DEFAULT_ANIMAL;
+const hashFor = (name, ascii) => [name !== DEFAULT_ANIMAL && name, ascii && "ascii"].filter(Boolean).join("-");
+const animal = () => animals[currentAnimal()];
 
 // ---------------------------------------------------------------------------
 // Sayings
 // ---------------------------------------------------------------------------
 
-// The dog phrases may leave out [when]: the cat ones are used then
-function generatedSaying(phrases = {}) {
-    const {what, ending} = phrases;
-    const when = phrases.when?.length ? phrases.when : animals.cat?.phrases?.when;
+function generatedSaying({when, what, ending} = {}) {
     if (!when?.length || !what?.length || !ending?.length) return "";
     const end = pick(ending);
     const separator = /^[.,!?…]/.test(end) ? "" : " ";
@@ -158,7 +144,7 @@ function generatedSaying(phrases = {}) {
 }
 
 function randomSaying() {
-    const {sayings = [], phrases} = texts();
+    const {sayings, phrases} = texts[currentAnimal()];
     const generated = generatedSaying(phrases);
     const useReadyMade = sayings.length && (Math.random() < READY_MADE_CHANCE || !generated);
     return useReadyMade ? pick(sayings) : generated;
@@ -166,7 +152,7 @@ function randomSaying() {
 
 // A word as DOM nodes; highlighted parts become <mark>
 function wordNodes(word) {
-    return word.split(HIGHLIGHT).map((part, i) => {
+    return word.split(animal().highlight).map((part, i) => {
         if (i % 2 === 0) return part;
         const mark = document.createElement("mark");
         mark.textContent = part;
@@ -270,43 +256,11 @@ function startSway() {
     photo.style.animation = "";
 }
 
-const photoUrl = id => `${CATAAS}/cat/${encodeURIComponent(id)}`;
-
-// Ask cataas for a random photo's id first, so the history can show exactly this photo again
-async function randomPhotoId() {
-    try {
-        const res = await fetch(`${CATAAS}/cat?json=true&${Date.now()}`, {signal: AbortSignal.timeout(8000)});
-        return res.ok ? (await res.json()).id : undefined;
-    } catch {
-        return undefined;
-    }
-}
-
-// dog.ceo has no ids: the answer is the image url itself
-async function randomDogUrl() {
-    try {
-        const res = await fetch(DOG_API, {signal: AbortSignal.timeout(8000)});
-        const data = res.ok ? await res.json() : undefined;
-        return data?.status === "success" ? data.message : undefined;
-    } catch {
-        return undefined;
-    }
-}
-
 async function newEntry() {
-    const animal = currentAnimal();
+    const name = currentAnimal();
     const saying = randomSaying();
-    if (isAscii()) return {kind: "ascii", animal, art: sideBySide(pickDistinct(texts().arts ?? [], pick([1, 2, 2, 3]))), saying};
-    if (animal === "dog") return {kind: "photo", animal, url: await randomDogUrl(), saying};
-    return {kind: "photo", animal, id: await randomPhotoId(), saying};
-}
-
-// Where a photo entry's image comes from. Without an id (cataas JSON unavailable) a cat falls back to a plain random
-// photo, the timestamp defeats the cache; a dog without url has no fallback (dog.ceo only hands out urls)
-function photoSource(entry) {
-    if (entry.url) return entry.url;
-    if (entry.id) return photoUrl(entry.id);
-    return entryAnimal(entry) === "cat" ? `${CATAAS}/cat?${Date.now()}` : undefined;
+    if (isAscii()) return {kind: "ascii", animal: name, art: sideBySide(pickDistinct(texts[name].arts, pick([1, 2, 2, 3]))), saying};
+    return {kind: "photo", animal: name, saying, ...await animal().randomPhoto()};
 }
 
 function show(entry) {
@@ -319,9 +273,8 @@ function show(entry) {
         art.textContent = entry.art;
         setSaying(toAscii(entry.saying));
     } else {
-        // no image (dog.ceo unavailable): the last photo stays, only the saying changes
-        const src = photoSource(entry);
-        if (src) img.src = src;
+        // no image (photo service unavailable): the last photo stays, only the saying changes
+        if (entry.src) img.src = entry.src;
         setSaying(entry.saying);
     }
     if (historyDrawer.open) renderHistory();
@@ -332,20 +285,19 @@ async function next() {
     const count = ++showCount;
     const entry = await newEntry();
     if (count !== showCount) return; // a newer click, mode switch or history pick took over meanwhile
-    if (entry.kind === "ascii" || entry.id || entry.url) addToHistory(entry);
+    if (!entry.transient && (entry.kind === "ascii" || entry.src)) addToHistory(entry);
     show(entry);
 }
 
-// Show a cat or dog from the history again, switching animal and photos/ASCII if needed
+// Show a picture from the history again, switching animal and photos/ASCII if needed
 function restore(entry) {
     ++showCount;
-    const animal = entryAnimal(entry);
     const ascii = entry.kind === "ascii";
-    if (animal === currentAnimal() && ascii === isAscii()) {
+    if (entry.animal === currentAnimal() && ascii === isAscii()) {
         show(entry);
     } else {
         pendingEntry = entry;
-        location.hash = hashFor(animal, ascii); // hashchange shows pendingEntry
+        location.hash = hashFor(entry.animal, ascii); // hashchange shows pendingEntry
     }
 }
 
@@ -357,26 +309,23 @@ function scheduleReload() {
     reloadTimeout = setTimeout(next, delay * 1000);
 }
 
-// Texts that name the animal: the LABELS above and every element with a data-dog attribute
-// (its original text, the cat one, is kept in data-cat)
+// Texts that name the animal: every element with a data-text attribute gets that entry of the animal's ui
 function applyAnimal() {
-    const animal = currentAnimal();
-    const labels = LABELS[animal];
-    document.body.classList.toggle("dog", animal === "dog");
-    for (const el of document.querySelectorAll("[data-dog]")) {
-        el.dataset.cat ??= el.textContent;
-        el.textContent = animal === "dog" ? el.dataset.dog : el.dataset.cat;
+    const {ui, face} = animal();
+    for (const el of document.querySelectorAll("[data-text]")) {
+        el.textContent = el.dataset.text === "face" ? face : ui[el.dataset.text];
     }
-    document.title = labels.title;
-    img.alt = labels.photo;
-    art.setAttribute("aria-label", labels.art);
-    animalSelect.value = animal;
+    document.title = ui.title;
+    img.alt = ui.photoAlt;
+    art.setAttribute("aria-label", ui.artLabel);
+    animalSelect.value = currentAnimal();
 }
 
 function applyMode() {
     document.body.classList.toggle("ascii", isAscii());
+    document.body.dataset.animal = currentAnimal(); // for animal specific styling in style.css
     applyAnimal();
-    modeButton.title = isAscii() ? "Mit Bildern" : LABELS[currentAnimal()].toAscii;
+    modeButton.title = isAscii() ? "Mit Bildern" : animal().ui.toAscii;
     modeButton.setAttribute("aria-label", modeButton.title);
     saveSettings();
     const entry = pendingEntry;
@@ -391,17 +340,20 @@ function applyMode() {
 
 function loadHistory() {
     try {
-        shownCats = JSON.parse(localStorage.getItem(HISTORY_KEY)) ?? [];
+        shownEntries = JSON.parse(localStorage.getItem(HISTORY_KEY)) ?? [];
     } catch {
-        shownCats = [];
+        shownEntries = [];
     }
-    if (!Array.isArray(shownCats)) shownCats = [];
+    if (!Array.isArray(shownEntries)) shownEntries = [];
+    // entries from before the animals were configurable have no animal (cats) and a cataas id (or, dogs, a url) instead of a src
+    shownEntries = shownEntries.map(entry => ({animal: "cat", ...(entry.url && {src: entry.url}), ...(entry.id && animals.cat?.legacyPhoto(entry.id)), ...entry}))
+        .filter(entry => animals[entry.animal]);
 }
 
 function addToHistory(entry) {
-    shownCats = [entry, ...shownCats].slice(0, HISTORY_SIZE);
+    shownEntries = [entry, ...shownEntries].slice(0, HISTORY_SIZE);
     try {
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(shownCats));
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(shownEntries));
     } catch { /* storage blocked: history lasts this page only */
     }
 }
@@ -410,8 +362,7 @@ function historyItem(entry) {
     let preview;
     if (entry.kind === "photo") {
         preview = document.createElement("img");
-        // dog.ceo has no thumbnails: the full image, scaled down by style.css
-        preview.src = entry.url ?? `${photoUrl(entry.id)}?width=${THUMBNAIL_WIDTH}`;
+        preview.src = entry.thumb ?? entry.src; // without a thumbnail the full image, scaled down by style.css
         preview.alt = "";
         preview.loading = "lazy";
     } else {
@@ -435,8 +386,8 @@ function historyItem(entry) {
 }
 
 function renderHistory() {
-    historyDrawer.classList.toggle("has-entries", shownCats.length > 0);
-    historyList.replaceChildren(...shownCats.map(historyItem));
+    historyDrawer.classList.toggle("has-entries", shownEntries.length > 0);
+    historyList.replaceChildren(...shownEntries.map(historyItem));
 }
 
 // ---------------------------------------------------------------------------
@@ -486,7 +437,7 @@ function updateHighscore(elapsed) {
         // Announce once per page, and not for the very first run (nothing to beat yet)
         if (!highscoreAnnounced && highscoreAtStart > 0) {
             highscoreAnnounced = true;
-            highscoreRecord.textContent = pick(texts().highscores ?? []) ?? "";
+            highscoreRecord.textContent = pick(texts[currentAnimal()].highscores) ?? "";
             highscoreBox.classList.add("new");
         }
     }
@@ -527,17 +478,17 @@ function restoreSettings() {
     applyTheme();
     autoReload.checked = settings.autoReload === true;
     if (Number(settings.seconds) >= 1) seconds.value = settings.seconds;
-    // Explicit URL wins over the saved animal and mode: ?animal=cat|dog, then #hash
+    // Explicit URL wins over the saved animal and mode: ?animal=<name>, then #hash
     const url = new URL(location.href);
     const queryAnimal = url.searchParams.get("animal")?.toLowerCase();
-    if (queryAnimal === "cat" || queryAnimal === "dog") {
+    if (animals[queryAnimal]) {
         // taken over once into the hash (which the animal select and mode button use), then dropped from the URL
         const ascii = location.hash ? isAscii() : settings.ascii;
         url.searchParams.delete("animal");
         url.hash = hashFor(queryAnimal, ascii);
         history.replaceState(null, "", url);
     } else {
-        const hash = hashFor(settings.animal, settings.ascii);
+        const hash = hashFor(animals[settings.animal] ? settings.animal : DEFAULT_ANIMAL, settings.ascii);
         if (hash && !location.hash) history.replaceState(null, "", `#${hash}`);
     }
 }
@@ -546,10 +497,11 @@ function restoreSettings() {
 // Events
 // ---------------------------------------------------------------------------
 
-// Animal (cat / dog) and mode (photos / ASCII) live in the URL hash
+// Animal and mode (photos / ASCII) live in the URL hash
 modeButton.onclick = () => {
     location.hash = hashFor(currentAnimal(), !isAscii());
 };
+animalSelect.replaceChildren(...Object.entries(animals).map(([name, {emoji, plural}]) => new Option(`${emoji} ${plural}`, name)));
 animalSelect.onchange = () => {
     location.hash = hashFor(animalSelect.value, isAscii());
 };
@@ -591,7 +543,7 @@ resetSettingsButton.onclick = () => {
     autoReload.checked = autoReload.defaultChecked;
     seconds.value = seconds.defaultValue;
     scheduleReload();
-    if (location.hash.slice(1)) location.hash = ""; // hashchange switches back to cat photos
+    if (location.hash.slice(1)) location.hash = ""; // hashchange switches back to the default animal's photos
 };
 
 resetHighscoreButton.onclick = () => {
@@ -605,7 +557,7 @@ resetHighscoreButton.onclick = () => {
 resetHistoryButton.onclick = () => {
     if (!confirm(resetHistoryButton.dataset.confirm)) return;
     localStorage.removeItem(HISTORY_KEY);
-    shownCats = [];
+    shownEntries = [];
     renderHistory();
 };
 
@@ -665,29 +617,25 @@ function parseSections(text) {
     return sections;
 }
 
-// Cats (and dogs) are separated by "---"; leading spaces are part of the art, empty lines around one are not
+// The arts are separated by "---"; leading spaces are part of the art, empty lines around one are not
 function parseArts(text) {
     return text.split(/^---\s*$/m)
         .map(block => block.replace(/\s+$/, "").replace(/^\s*\n/, "").split(/\r?\n/))
-        .filter(cat => cat.join("").trim());
+        .filter(art => art.join("").trim());
 }
 
 // A missing or broken text file just means fewer texts, not a broken page
-const loaded = globalThis.TEXTS ?? {};
-animals = {
-    cat: {
+for (const [name, animal] of Object.entries(animals)) {
+    const loaded = globalThis.TEXTS?.[name] ?? {};
+    texts[name] = {
         sayings: nonEmptyLines(loaded.sayings ?? ""),
         phrases: parseSections(loaded.phrases ?? ""),
         highscores: nonEmptyLines(loaded.highscores ?? ""),
-        arts: parseArts(loaded.cats ?? ""),
-    },
-    dog: {
-        sayings: nonEmptyLines(loaded.dogSayings ?? ""),
-        phrases: parseSections(loaded.dogPhrases ?? ""),
-        highscores: nonEmptyLines(loaded.dogHighscores ?? ""),
-        arts: parseArts(loaded.dogs ?? ""),
-    },
-};
+        arts: parseArts(loaded.arts ?? ""),
+    };
+    // the capture group makes split() keep the matches
+    animal.highlight = new RegExp(`(${[...COMMON_HIGHLIGHT, ...animal.highlight].map(word => `${word}\\p{L}*`).join("|")})`, "giu");
+}
 
 loadHistory();
 highscoreAtStart = readHighscore();

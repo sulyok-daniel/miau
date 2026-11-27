@@ -1,8 +1,8 @@
-// Ready-made sayings, one per line.
+// Ready-made sayings, one per line. (cat mode)
 // Write the texts between the two backticks; just don't use a backtick ` or ${ inside them.
 // (A .js file instead of .txt, so the page also works when opened straight from disk.)
 globalThis.TEXTS ??= {};
-TEXTS.sayings = String.raw`
+(TEXTS.cat ??= {}).sayings = String.raw`
 Ich hab vergessen, meinen Bildschirm zu sperren. Jetzt gehört er der Katze.
 Mein Passwort ist „miau123“. War's schon immer.
 Ich bin eigentlich nur drei Katzen in einem Trenchcoat.

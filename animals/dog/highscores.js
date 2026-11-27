@@ -1,8 +1,8 @@
-// Messages for a new highscore in the dog mode, one per line.
+// Messages for a new highscore, one per line. (dog mode)
 // Write the texts between the two backticks; just don't use a backtick ` or ${ inside them.
 // (A .js file instead of .txt, so the page also works when opened straight from disk.)
 globalThis.TEXTS ??= {};
-TEXTS.dogHighscores = String.raw`
+(TEXTS.dog ??= {}).highscores = String.raw`
 Neuer Rekord! Der Hund wedelt mit dem Schwanz.
 Guter Bildschirm! Feiner Bildschirm! Bleibt so schön offen!
 Neuer Highscore! Wuff wuff!

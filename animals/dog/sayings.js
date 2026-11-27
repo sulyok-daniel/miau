@@ -1,8 +1,8 @@
-// Ready-made sayings for the dog mode, one per line.
+// Ready-made sayings, one per line. (dog mode)
 // Write the texts between the two backticks; just don't use a backtick ` or ${ inside them.
 // (A .js file instead of .txt, so the page also works when opened straight from disk.)
 globalThis.TEXTS ??= {};
-TEXTS.dogSayings = String.raw`
+(TEXTS.dog ??= {}).sayings = String.raw`
 Ich hab vergessen, meinen Bildschirm zu sperren. Der Hund hat ihn schon angesabbert.
 Der Hund hat meinen Code gefressen. Diesmal wirklich.
 Sitz. Platz. Bildschirm sperren. Nur zwei davon hat mein Mensch gelernt.
